@@ -1,0 +1,18 @@
+[Unit]
+Description=Sincronización de Fechas Académicas
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 __INSTALL_DIR__/backend/fechas_sync.py
+WorkingDirectory=__INSTALL_DIR__
+Environment=PYTHONPATH=__INSTALL_DIR__
+
+# Timeout generoso para conexiones lentas
+TimeoutStartSec=120
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fechas-academicas

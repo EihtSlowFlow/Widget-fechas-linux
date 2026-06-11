@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "org.ramiro.fechas",
+        "Name": "Fechas Académicas",
+        "Name[es]": "Fechas Académicas",
+        "Description": "Cuenta regresiva para entregas y exámenes académicos",
+        "Description[es]": "Cuenta regresiva para entregas y exámenes académicos",
+        "Icon": "view-calendar-upcoming-events",
+        "Category": "Date and Time",
+        "Version": "1.0",
+        "License": "GPL-3.0+",
+        "Authors": [
+            {
+                "Name": "Ramiro",
+                "Email": ""
+            }
+        ]
+    },
+    "X-Plasma-API": "declarativeappletscript",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

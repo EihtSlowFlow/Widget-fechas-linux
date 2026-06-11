@@ -1,0 +1,14 @@
+[Unit]
+Description=Timer de Sincronización de Fechas Académicas
+Requires=fechas-sync.service
+
+[Timer]
+# Ejecutar 2 minutos después del login
+OnBootSec=2min
+# Repetir cada 30 minutos
+OnUnitActiveSec=30min
+# Persistir: si se perdió una ejecución, correr al arrancar
+Persistent=true
+
+[Install]
+WantedBy=timers.target

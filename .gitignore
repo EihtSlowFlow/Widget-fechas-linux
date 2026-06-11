@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Datos locales del usuario (generados por el sistema)
+*.tmp
+
+# Gemini / AI
+.gemini/
