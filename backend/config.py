@@ -22,6 +22,7 @@ SEEN_EVENTS_FILE = DATA_DIR / "seen_events.json"
 COMPLETED_EVENTS_FILE = DATA_DIR / "completed_events.json"
 SOURCES_FILE = CONFIG_DIR / "sources.json"
 MANUAL_EVENTS_FILE = CONFIG_DIR / "manual_events.json"
+SUBJECTS_FILE = CONFIG_DIR / "subjects.json"
 
 # Directorio del proyecto (para referencia)
 PROJECT_DIR = Path(__file__).resolve().parent.parent

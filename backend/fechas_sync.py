@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 # Agregar el directorio padre al path para imports
 from pathlib import Path
@@ -29,12 +29,13 @@ from backend.config import (
     MAX_RETRIES,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData
+from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek
 from backend.cache import (
     init_default_sources,
     read_sources,
     write_sources,
     read_manual_events,
+    read_subjects,
     update_novelty,
     write_cache,
 )
@@ -77,6 +78,46 @@ def _fetch_events_from_source(source) -> tuple[list[AcademicEvent], str | None]:
     except Exception as e:
         logger.error("Error procesando fuente '%s': %s", source.name, e)
         return [], str(e)
+
+
+def process_subjects(today: date) -> list[CurrentSubjectWeek]:
+    """
+    Procesa las materias configuradas y calcula su semana actual y temario.
+    """
+    subjects = read_subjects()
+    current_subjects = []
+
+    for subj in subjects:
+        try:
+            start_date = date.fromisoformat(subj.start_date)
+        except ValueError:
+            logger.error("Fecha de inicio inválida para la materia '%s': %s", subj.name, subj.start_date)
+            continue
+            
+        elapsed_days = (today - start_date).days
+        week_number = elapsed_days // 7 + 1
+        day_of_week = elapsed_days % 7 + 1
+        
+        week_start = start_date + timedelta(days=(week_number - 1) * 7)
+        week_end = week_start + timedelta(days=6)
+        
+        topics = []
+        for entry in subj.syllabus:
+            if entry.start_week <= week_number <= entry.end_week:
+                if entry.topic and entry.topic.strip():
+                    topics.append(entry.topic.strip())
+                    
+        current_subjects.append(CurrentSubjectWeek(
+            subject_id=subj.id,
+            subject_name=subj.name,
+            week_number=week_number,
+            day_of_week=day_of_week,
+            week_start=week_start.isoformat(),
+            week_end=week_end.isoformat(),
+            topics=topics
+        ))
+        
+    return current_subjects
 
 
 def sync(dry_run: bool = False) -> CacheData:
@@ -169,11 +210,15 @@ def sync(dry_run: bool = False) -> CacheData:
             seen_ids.add(e.id)
             unique_events.append(e)
 
-    # 9. Construir cache
+    # 9. Procesar materias
+    current_subjects = process_subjects(today)
+    
+    # 10. Construir cache
     global_status = "ok" if not sync_errors else "partial"
     global_error = "; ".join(sync_errors) if sync_errors else None
 
     event_dicts = [e.to_dict() for e in unique_events]
+    subject_dicts = [cs.to_dict() for cs in current_subjects]
 
     # 10. Aplicar estado de completado (entregados por el usuario)
     from backend.cache import apply_completed_status
@@ -184,9 +229,10 @@ def sync(dry_run: bool = False) -> CacheData:
         sync_status=global_status,
         sync_error=global_error,
         events=event_dicts,
+        current_subjects=subject_dicts,
     )
 
-    # 10. Escribir
+    # 11. Escribir
     if not dry_run:
         write_cache(cache)
         write_sources(sources)
@@ -207,6 +253,12 @@ def sync(dry_run: bool = False) -> CacheData:
                 "  %s %s %3dd │ %s │ %s",
                 flag, urgency_icon, e.days_remaining, e.title[:50], e.source_name,
             )
+        
+        logger.info("─── Materias Actuales ───")
+        for cs in current_subjects:
+            logger.info("  📚 %s: Semana %d (Día %d/7)", cs.subject_name, cs.week_number, cs.day_of_week)
+            for t in cs.topics:
+                logger.info("      - %s", t)
 
     return cache
 

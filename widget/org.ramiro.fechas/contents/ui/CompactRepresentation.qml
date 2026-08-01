@@ -30,9 +30,40 @@ Item {
         font.pixelSize: Kirigami.Units.gridUnit * 0.9
     }
 
+    // ─── Subjects Banner ─────────────────────────────────────
+    Rectangle {
+        id: subjectsBanner
+        visible: root.subjectsModel && root.subjectsModel.length > 0
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: Kirigami.Units.smallSpacing
+        anchors.rightMargin: Kirigami.Units.smallSpacing
+        anchors.topMargin: Kirigami.Units.smallSpacing
+        height: visible ? (Kirigami.Units.gridUnit * 1.2) : 0
+        radius: Kirigami.Units.cornerRadius
+        color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.2)
+        
+        PlasmaComponents.Label {
+            anchors.centerIn: parent
+            text: {
+                if (!root.subjectsModel || root.subjectsModel.length === 0) return "";
+                var s = root.subjectsModel[0];
+                var n = root.subjectsModel.length;
+                return "📚 Semana " + s.week_number + " · día " + s.day_of_week + "/7 · " + n + (n === 1 ? " materia" : " materias");
+            }
+            font.pixelSize: Kirigami.Units.gridUnit * 0.6
+            font.bold: true
+            color: Kirigami.Theme.highlightColor
+        }
+    }
+
     // ─── Carousel ────────────────────────────────────────────
     ColumnLayout {
-        anchors.fill: parent
+        anchors.top: subjectsBanner.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
         anchors.margins: Kirigami.Units.smallSpacing
         visible: root.eventCount > 0
         spacing: 2
