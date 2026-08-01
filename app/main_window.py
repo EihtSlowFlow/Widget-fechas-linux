@@ -191,19 +191,33 @@ class MainWindow(QMainWindow):
         self._sync_process = QProcess(self)
         self._sync_process.setWorkingDirectory(str(project_dir))
         
+        def _check_lock():
+            self._lock_check_process = QProcess(self)
+            self._lock_check_process.setWorkingDirectory(str(project_dir))
+            def on_lock_check_finished(code, status):
+                if code == 0:
+                    self._sync_btn.setEnabled(True)
+                    self._sync_btn.setText("🔄 Sincronizar")
+                    self._load_data()
+                else:
+                    QTimer.singleShot(3000, _check_lock)
+            self._lock_check_process.finished.connect(on_lock_check_finished)
+            self._lock_check_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py"), "--check-lock"])
+
         def on_finished(exit_code, exit_status):
             if hasattr(self, '_sync_timeout_timer'):
                 self._sync_timeout_timer.stop()
-            self._sync_btn.setEnabled(True)
-            self._sync_btn.setText("🔄 Sincronizar")
             
             if exit_code == 3:
-                self._status_sync.setText("🔄 Sincronización ya en curso (bloqueado)...")
-                # Intenta recargar después de unos segundos
-                QTimer.singleShot(3000, self._load_data)
+                self._status_sync.setText("🔄 Sincronización ya en curso (esperando)...")
+                QTimer.singleShot(3000, _check_lock)
             elif exit_code == 0:
+                self._sync_btn.setEnabled(True)
+                self._sync_btn.setText("🔄 Sincronizar")
                 self._load_data()
             else:
+                self._sync_btn.setEnabled(True)
+                self._sync_btn.setText("🔄 Sincronizar")
                 QMessageBox.warning(self, "Error", f"Error en sincronización (código {exit_code})")
                 self._load_data()
                 
@@ -220,8 +234,6 @@ class MainWindow(QMainWindow):
         self._sync_process.errorOccurred.connect(on_error)
         
         def on_timeout():
-            self._sync_btn.setEnabled(True)
-            self._sync_btn.setText("🔄 Sincronizar")
             self._status_sync.setText("🔄 Sincronización en segundo plano...")
             
         self._sync_timeout_timer = QTimer(self)

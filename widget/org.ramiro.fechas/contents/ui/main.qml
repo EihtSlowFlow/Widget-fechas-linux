@@ -86,33 +86,54 @@ PlasmoidItem {
             syncTimeoutTimer.stop();
             
             if (exitCode === 3) {
-                console.log("[FechasAcadémicas] Sync already running (code 3).");
+                console.log("[FechasAcadémicas] Sync already running (code 3). Polling lock...");
                 root.syncStatus = "already_running";
-                delayedReloadTimer.start();
+                lockCheckTimer.start();
             } else if (exitCode === 0) {
                 console.log("[FechasAcadémicas] Sync finished successfully.");
+                root.isSyncing = false;
                 reloadCache();
             } else {
                 console.log("[FechasAcadémicas] Sync error (code " + exitCode + "). Output: " + stdout);
+                root.isSyncing = false;
                 reloadCache();
             }
             
-            root.isSyncing = false;
+            disconnectSource(sourceName);
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: lockCheckLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            var exitCode = data["exit code"];
+            
+            if (exitCode === 0) {
+                console.log("[FechasAcadémicas] Lock is free, reloading cache.");
+                root.isSyncing = false;
+                syncTimeoutTimer.stop();
+                reloadCache();
+            } else {
+                // Sigue ocupado. Volvemos a consultar si no venció el timeout mayor
+                if (syncTimeoutTimer.running) {
+                    lockCheckTimer.start();
+                }
+            }
             disconnectSource(sourceName);
         }
     }
 
     Timer {
-        id: delayedReloadTimer
+        id: lockCheckTimer
         interval: 3000
         running: false
         repeat: false
         onTriggered: {
-            // Restore status from cache if we temporarily set it to already_running
-            if (root.syncStatus === "already_running") {
-                root.syncStatus = "pending"; // Fallback, reloadCache will overwrite it
+            if (installDir && (root.syncStatus === "already_running" || root.isSyncing)) {
+                lockCheckLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py --check-lock");
             }
-            reloadCache();
         }
     }
 
@@ -123,8 +144,12 @@ PlasmoidItem {
         repeat: false
         onTriggered: {
             console.log("[FechasAcadémicas] Sync timed out in UI.");
-            root.isSyncing = false;
             root.syncStatus = "background";
+            // No seteamos isSyncing a false para que el botón se mantenga deshabilitado
+            // Sin embargo, seguimos haciendo polling en background (lockCheckTimer)
+            if (installDir) {
+                lockCheckTimer.start();
+            }
         }
     }
 

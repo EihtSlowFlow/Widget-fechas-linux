@@ -289,6 +289,11 @@ def main():
         action="store_true",
         help="Mostrar logging detallado",
     )
+    parser.add_argument(
+        "--check-lock",
+        action="store_true",
+        help="Sólo comprueba si hay una sincronización en curso. Retorna 3 si está bloqueado, 0 si está libre.",
+    )
     args = parser.parse_args()
 
     # Configurar logging
@@ -306,9 +311,15 @@ def main():
         try:
             fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
+            if args.check_lock:
+                sys.exit(3)
             logger.warning("Ya hay una sincronización en curso. Abortando.")
             print("ALREADY_RUNNING")
             sys.exit(3)
+            
+        if args.check_lock:
+            # We acquired the lock successfully, so no sync is running.
+            sys.exit(0)
 
         try:
             cache = sync(dry_run=args.dry_run)
