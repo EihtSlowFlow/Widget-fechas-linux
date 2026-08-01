@@ -191,17 +191,33 @@ class MainWindow(QMainWindow):
         self._sync_process = QProcess(self)
         self._sync_process.setWorkingDirectory(str(project_dir))
         
+        self._is_polling_lock = False
+        
         def _check_lock():
+            if not self._is_polling_lock:
+                return
             self._lock_check_process = QProcess(self)
             self._lock_check_process.setWorkingDirectory(str(project_dir))
+            
             def on_lock_check_finished(code, status):
+                if not self._is_polling_lock:
+                    return
                 if code == 0:
+                    self._is_polling_lock = False
                     self._sync_btn.setEnabled(True)
                     self._sync_btn.setText("🔄 Sincronizar")
                     self._load_data()
                 else:
                     QTimer.singleShot(3000, _check_lock)
+                    
+            def on_lock_check_error(error):
+                self._is_polling_lock = False
+                self._sync_btn.setEnabled(True)
+                self._sync_btn.setText("🔄 Sincronizar")
+                self._load_data()
+                
             self._lock_check_process.finished.connect(on_lock_check_finished)
+            self._lock_check_process.errorOccurred.connect(on_lock_check_error)
             self._lock_check_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py"), "--check-lock"])
 
         def on_finished(exit_code, exit_status):
@@ -210,6 +226,7 @@ class MainWindow(QMainWindow):
             
             if exit_code == 3:
                 self._status_sync.setText("🔄 Sincronización ya en curso (esperando)...")
+                self._is_polling_lock = True
                 QTimer.singleShot(3000, _check_lock)
             elif exit_code == 0:
                 self._sync_btn.setEnabled(True)
@@ -234,6 +251,9 @@ class MainWindow(QMainWindow):
         self._sync_process.errorOccurred.connect(on_error)
         
         def on_timeout():
+            self._is_polling_lock = False
+            self._sync_btn.setEnabled(True)
+            self._sync_btn.setText("🔄 Sincronizar")
             self._status_sync.setText("🔄 Sincronización en segundo plano...")
             
         self._sync_timeout_timer = QTimer(self)

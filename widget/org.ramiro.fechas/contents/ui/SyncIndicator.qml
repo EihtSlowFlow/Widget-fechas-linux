@@ -11,9 +11,9 @@ RowLayout {
     spacing: 4
 
     function timeAgo(isoString) {
+        if (root.syncStatus === "background") return "en 2º plano...";
         if (root.isSyncing) return "sincronizando...";
         if (root.syncStatus === "already_running") return "ya en curso";
-        if (root.syncStatus === "background") return "en 2º plano...";
         
         if (!isoString) return "nunca";
         try {
@@ -34,9 +34,9 @@ RowLayout {
     }
 
     function syncIcon() {
+        if (root.syncStatus === "background") return "view-refresh";
         if (root.isSyncing) return "view-refresh";
         if (root.syncStatus === "already_running") return "dialog-information";
-        if (root.syncStatus === "background") return "view-refresh";
         if (root.syncStatus === "ok") return "checkmark";
         if (root.syncStatus === "partial") return "dialog-warning";
         if (root.syncStatus === "error") return "dialog-error";
@@ -44,7 +44,7 @@ RowLayout {
     }
 
     function syncColor() {
-        if (root.isSyncing || root.syncStatus === "background") return Kirigami.Theme.highlightColor;
+        if (root.syncStatus === "background" || root.isSyncing) return Kirigami.Theme.highlightColor;
         if (root.syncStatus === "already_running") return "#FFC107"; // Yellow/Orange
         if (root.syncStatus === "ok") return Kirigami.Theme.positiveTextColor;
         if (root.syncStatus === "partial") return "#FFC107";
@@ -84,9 +84,9 @@ RowLayout {
 
         PlasmaComponents.ToolTip {
             text: {
+                if (root.syncStatus === "background") return "La sincronización continúa en segundo plano";
                 if (root.isSyncing) return "Sincronizando con los servidores...";
                 if (root.syncStatus === "already_running") return "Ya hay una sincronización en curso";
-                if (root.syncStatus === "background") return "La sincronización continúa en segundo plano";
                 if (root.syncStatus === "ok") return "Sincronización exitosa";
                 if (root.syncError && root.syncError.length > 0)
                     return "⚠ " + root.syncError;

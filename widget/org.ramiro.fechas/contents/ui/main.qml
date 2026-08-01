@@ -19,6 +19,7 @@ PlasmoidItem {
     property string syncError: ""
     property int eventCount: 0
     property bool isSyncing: false
+    property bool pollingExistingSync: false
 
     // ─── Paths (resolved dynamically at startup) ─────────────
     property string userHome: ""
@@ -83,20 +84,22 @@ PlasmoidItem {
             var exitCode = data["exit code"];
             var stdout = data["stdout"] || "";
             
-            syncTimeoutTimer.stop();
-            
             if (exitCode === 3) {
                 console.log("[FechasAcadémicas] Sync already running (code 3). Polling lock...");
                 root.syncStatus = "already_running";
+                root.pollingExistingSync = true;
                 lockCheckTimer.start();
-            } else if (exitCode === 0) {
-                console.log("[FechasAcadémicas] Sync finished successfully.");
-                root.isSyncing = false;
-                reloadCache();
             } else {
-                console.log("[FechasAcadémicas] Sync error (code " + exitCode + "). Output: " + stdout);
-                root.isSyncing = false;
-                reloadCache();
+                syncTimeoutTimer.stop();
+                if (exitCode === 0) {
+                    console.log("[FechasAcadémicas] Sync finished successfully.");
+                    root.isSyncing = false;
+                    reloadCache();
+                } else {
+                    console.log("[FechasAcadémicas] Sync error (code " + exitCode + "). Output: " + stdout);
+                    root.isSyncing = false;
+                    reloadCache();
+                }
             }
             
             disconnectSource(sourceName);
@@ -113,11 +116,12 @@ PlasmoidItem {
             if (exitCode === 0) {
                 console.log("[FechasAcadémicas] Lock is free, reloading cache.");
                 root.isSyncing = false;
+                root.pollingExistingSync = false;
                 syncTimeoutTimer.stop();
                 reloadCache();
             } else {
-                // Sigue ocupado. Volvemos a consultar si no venció el timeout mayor
-                if (syncTimeoutTimer.running) {
+                // Sigue ocupado. Volvemos a consultar si debemos seguir haciéndolo
+                if (root.pollingExistingSync) {
                     lockCheckTimer.start();
                 }
             }
@@ -131,7 +135,7 @@ PlasmoidItem {
         running: false
         repeat: false
         onTriggered: {
-            if (installDir && (root.syncStatus === "already_running" || root.isSyncing)) {
+            if (installDir && root.pollingExistingSync) {
                 lockCheckLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py --check-lock");
             }
         }
@@ -145,17 +149,15 @@ PlasmoidItem {
         onTriggered: {
             console.log("[FechasAcadémicas] Sync timed out in UI.");
             root.syncStatus = "background";
-            // No seteamos isSyncing a false para que el botón se mantenga deshabilitado
-            // Sin embargo, seguimos haciendo polling en background (lockCheckTimer)
-            if (installDir) {
-                lockCheckTimer.start();
-            }
+            root.pollingExistingSync = false; // Detener el polling
+            root.isSyncing = false; // Habilitamos la interfaz explícitamente tras el timeout
         }
     }
 
     function forceSync() {
         if (installDir && !root.isSyncing) {
             root.isSyncing = true;
+            root.pollingExistingSync = false;
             syncTimeoutTimer.start();
             syncLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py");
         }
