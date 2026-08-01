@@ -12,10 +12,12 @@ from PyQt6.QtGui import QTextCharFormat, QColor, QFont
 from app.styles.theme import DARK_PALETTE, get_urgency_style
 from app.widgets.event_card import EventCard
 from datetime import datetime
-
+from PyQt6.QtCore import pyqtSignal
 
 class CalendarView(QWidget):
     """Vista de calendario con eventos resaltados por urgencia."""
+
+    event_edit_requested = pyqtSignal(dict)  # Emitida al solicitar edición de evento manual
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -144,4 +146,5 @@ class CalendarView(QWidget):
         else:
             for i, e in enumerate(day_events):
                 card = EventCard(e)
+                card.edit_requested.connect(self.event_edit_requested.emit)
                 self._detail_layout.insertWidget(i, card)
