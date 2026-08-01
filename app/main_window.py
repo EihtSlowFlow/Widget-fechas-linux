@@ -18,7 +18,7 @@ from PyQt6.QtGui import QIcon, QFont
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config import CACHE_FILE, ensure_dirs
-from backend.cache import read_cache
+from backend.cache import read_cache, update_manual_event
 from app.styles.theme import DARK_PALETTE, get_urgency_style
 from app.views.timeline_view import TimelineView
 from app.views.calendar_view import CalendarView
@@ -36,6 +36,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(900, 600)
         self.resize(1050, 700)
         self._events = []
+        self._sync_required_after_unlock = False
         self._setup_ui()
         self._load_data()
         self._start_auto_refresh()
@@ -90,9 +91,11 @@ class MainWindow(QMainWindow):
         self._tabs = QTabWidget()
 
         self._timeline_view = TimelineView()
+        self._timeline_view.event_edit_requested.connect(self._edit_event)
         self._tabs.addTab(self._timeline_view, "📋 Timeline")
 
         self._calendar_view = CalendarView()
+        self._calendar_view.event_edit_requested.connect(self._edit_event)
         self._tabs.addTab(self._calendar_view, "📅 Calendario")
 
         self._subjects_view = SubjectsView()
@@ -176,14 +179,39 @@ class MainWindow(QMainWindow):
         """Abre el diálogo de nuevo evento."""
         dialog = EventDialog(parent=self)
         if dialog.exec():
-            self._force_sync()
+            # In add event, event_dialog already handles write_manual_events. 
+            # Oh wait, we changed EventDialog to not write! We must save it here too.
+            try:
+                new_event = dialog.get_event()
+                from backend.cache import read_manual_events, write_manual_events
+                manual_events = read_manual_events()
+                manual_events.append(new_event)
+                write_manual_events(manual_events)
+                self._force_sync()
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"No se pudo crear el evento: {e}")
+
+    def _edit_event(self, event_data: dict):
+        """Abre el diálogo para editar un evento manual."""
+        if not event_data.get("is_manual"):
+            return
+
+        dialog = EventDialog(event_data=event_data, parent=self)
+        if dialog.exec():
+            try:
+                updated_event = dialog.get_event()
+                update_manual_event(event_data["id"], updated_event)
+                self._force_sync()
+            except ValueError as error:
+                QMessageBox.warning(self, "No se pudo editar", str(error))
 
     def _force_sync(self):
         """Ejecuta la sincronización utilizando QProcess."""
         from PyQt6.QtCore import QProcess
         
-        if hasattr(self, '_sync_process') and self._sync_process.state() != QProcess.ProcessState.NotRunning:
-            self._status_sync.setText("🔄 Sincronización ya en curso...")
+        if (hasattr(self, '_sync_process') and self._sync_process.state() != QProcess.ProcessState.NotRunning) or getattr(self, '_is_polling_lock', False):
+            self._sync_required_after_unlock = True
+            self._status_sync.setText("🔄 Sincronización encolada...")
             return
 
         project_dir = Path(__file__).resolve().parent.parent
@@ -204,9 +232,13 @@ class MainWindow(QMainWindow):
                     return
                 if code == 0:
                     self._is_polling_lock = False
-                    self._sync_btn.setEnabled(True)
-                    self._sync_btn.setText("🔄 Sincronizar")
-                    self._load_data()
+                    if self._sync_required_after_unlock:
+                        self._sync_required_after_unlock = False
+                        self._force_sync()
+                    else:
+                        self._sync_btn.setEnabled(True)
+                        self._sync_btn.setText("🔄 Sincronizar")
+                        self._load_data()
                 else:
                     QTimer.singleShot(3000, _check_lock)
                     
@@ -229,9 +261,13 @@ class MainWindow(QMainWindow):
                 self._is_polling_lock = True
                 QTimer.singleShot(3000, _check_lock)
             elif exit_code == 0:
-                self._sync_btn.setEnabled(True)
-                self._sync_btn.setText("🔄 Sincronizar")
-                self._load_data()
+                if self._sync_required_after_unlock:
+                    self._sync_required_after_unlock = False
+                    self._force_sync()
+                else:
+                    self._sync_btn.setEnabled(True)
+                    self._sync_btn.setText("🔄 Sincronizar")
+                    self._load_data()
             else:
                 self._sync_btn.setEnabled(True)
                 self._sync_btn.setText("🔄 Sincronizar")

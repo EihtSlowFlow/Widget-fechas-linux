@@ -12,8 +12,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+import uuid
 from backend.models import AcademicEvent
-from backend.cache import read_manual_events, write_manual_events
 from backend.config import get_urgency
 from app.styles.theme import DARK_PALETTE, get_urgency_style
 
@@ -173,17 +173,15 @@ class EventDialog(QDialog):
             category=category,
             is_manual=True,
         )
-        event.id = event.generate_stable_id()
-
-        # Read existing manual events and add/update
-        manual_events = read_manual_events()
 
         if self._is_editing and self._event_data:
-            # Update existing
-            old_id = self._event_data.get("id", "")
-            manual_events = [e for e in manual_events if e.id != old_id]
+            event.id = self._event_data.get("id", "")
+        else:
+            event.id = str(uuid.uuid4())
 
-        manual_events.append(event)
-        write_manual_events(manual_events)
-
+        self._updated_event = event
         self.accept()
+
+    def get_event(self) -> AcademicEvent:
+        """Devuelve el evento creado o editado."""
+        return getattr(self, "_updated_event", None)

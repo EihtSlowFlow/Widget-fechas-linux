@@ -114,15 +114,15 @@ def update_novelty(events: list[AcademicEvent]) -> list[AcademicEvent]:
     updated_known = dict(known)
 
     for event in events:
-        stable_id = event.generate_stable_id()
-        if stable_id in known:
-            event.first_seen = known[stable_id]
+        novelty_id = event.id if event.is_manual else event.generate_stable_id()
+        if novelty_id in known:
+            event.first_seen = known[novelty_id]
         else:
             event.first_seen = today_str
-            updated_known[stable_id] = today_str
+            updated_known[novelty_id] = today_str
 
         # Nuevo = descubierto hoy Y no visto aún por el usuario
-        event.is_new = (event.first_seen == today_str) and (stable_id not in seen)
+        event.is_new = (event.first_seen == today_str) and (novelty_id not in seen)
 
     # Limpiar eventos viejos (más de 90 días) para evitar crecimiento infinito
     cutoff = date.today().toordinal() - 90
@@ -262,6 +262,34 @@ def write_manual_events(events: list[AcademicEvent]) -> None:
     """Escribe eventos manuales de forma atómica."""
     ensure_dirs()
     _atomic_write_json(MANUAL_EVENTS_FILE, [e.to_dict() for e in events])
+
+
+def update_manual_event(event_id: str, updated_event: AcademicEvent) -> bool:
+    """
+    Busca un evento manual por su ID y actualiza solo sus campos editables.
+    Mantiene el ID y los metadatos de fuente, y lanza ValueError si no lo encuentra.
+    """
+    events = read_manual_events()
+    for i, event in enumerate(events):
+        if event.id == event_id:
+            # Reemplazar campos editables
+            event.title = updated_event.title
+            event.description = updated_event.description
+            event.due_date = updated_event.due_date
+            event.category = updated_event.category
+            event.start_date = updated_event.start_date
+            
+            # Forzar identidad de evento manual
+            event.id = event_id
+            event.source_id = "manual"
+            event.source_name = "Eventos Manuales"
+            event.is_manual = True
+            
+            events[i] = event
+            write_manual_events(events)
+            return True
+            
+    raise ValueError(f"El evento manual '{event_id}' ya no existe")
 
 
 # ─── Materias (subjects.json) ─────────────────────────────────────
