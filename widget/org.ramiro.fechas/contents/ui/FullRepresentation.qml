@@ -68,83 +68,6 @@ Item {
             opacity: 0.1
         }
 
-        // ─── Subjects List ──────────────────────────────────
-        ListView {
-            id: subjectsList
-            Layout.fillWidth: true
-            Layout.preferredHeight: contentHeight
-            Layout.maximumHeight: Kirigami.Units.gridUnit * 8
-            visible: root.subjectsModel && root.subjectsModel.length > 0
-            interactive: false
-            spacing: Kirigami.Units.smallSpacing
-            
-            model: root.subjectsModel
-            
-            delegate: Rectangle {
-                width: subjectsList.width
-                height: subjectContent.implicitHeight + Kirigami.Units.smallSpacing * 2
-                radius: Kirigami.Units.cornerRadius
-                color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.1)
-                border.width: 1
-                border.color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.3)
-                
-                RowLayout {
-                    id: subjectContent
-                    anchors.fill: parent
-                    anchors.margins: Kirigami.Units.smallSpacing
-                    spacing: Kirigami.Units.smallSpacing
-                    
-                    PlasmaComponents.Label {
-                        text: "📚"
-                        font.pixelSize: Kirigami.Units.gridUnit * 1.2
-                        Layout.alignment: Qt.AlignTop
-                    }
-                    
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        
-                        RowLayout {
-                            Layout.fillWidth: true
-                            PlasmaComponents.Label {
-                                text: modelData.subject_name
-                                font.bold: true
-                                font.pixelSize: Kirigami.Units.gridUnit * 0.75
-                                color: Kirigami.Theme.highlightColor
-                            }
-                            Item { Layout.fillWidth: true }
-                            PlasmaComponents.Label {
-                                text: "Semana " + modelData.week_number + " (Día " + modelData.day_of_week + "/7)"
-                                font.pixelSize: Kirigami.Units.gridUnit * 0.6
-                                opacity: 0.7
-                            }
-                        }
-                        
-                        PlasmaComponents.Label {
-                            Layout.fillWidth: true
-                            text: {
-                                if (modelData.topics && modelData.topics.length > 0) {
-                                    return modelData.topics.map(t => "• " + t).join("\n");
-                                }
-                                return "Sin temas asignados esta semana.";
-                            }
-                            font.pixelSize: Kirigami.Units.gridUnit * 0.65
-                            wrapMode: Text.WordWrap
-                            opacity: 0.8
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Separator if subjects exist
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 1
-            color: Kirigami.Theme.textColor
-            opacity: 0.1
-            visible: root.subjectsModel && root.subjectsModel.length > 0
-        }
 
         // ─── Event list ─────────────────────────────────────
         ListView {
@@ -156,6 +79,82 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
 
             model: root.eventsModel
+
+            header: ColumnLayout {
+                width: eventList.width
+                spacing: Kirigami.Units.smallSpacing
+
+                Repeater {
+                    model: root.subjectsModel
+                    
+                    delegate: Rectangle {
+                        width: eventList.width
+                        height: subjectContent.implicitHeight + Kirigami.Units.smallSpacing * 2
+                        radius: Kirigami.Units.cornerRadius
+                        color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.1)
+                        border.width: 1
+                        border.color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.3)
+                        
+                        RowLayout {
+                            id: subjectContent
+                            anchors.fill: parent
+                            anchors.margins: Kirigami.Units.smallSpacing
+                            spacing: Kirigami.Units.smallSpacing
+                            
+                            PlasmaComponents.Label {
+                                text: "📚"
+                                font.pixelSize: Kirigami.Units.gridUnit * 1.2
+                                Layout.alignment: Qt.AlignTop
+                            }
+                            
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    PlasmaComponents.Label {
+                                        text: modelData.subject_name
+                                        font.bold: true
+                                        font.pixelSize: Kirigami.Units.gridUnit * 0.75
+                                        color: Kirigami.Theme.highlightColor
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    PlasmaComponents.Label {
+                                        text: "Semana " + modelData.week_number + " (Día " + modelData.day_of_week + "/7)"
+                                        font.pixelSize: Kirigami.Units.gridUnit * 0.6
+                                        opacity: 0.7
+                                    }
+                                }
+                                
+                                PlasmaComponents.Label {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        if (modelData.topics && modelData.topics.length > 0) {
+                                            return modelData.topics.map(t => "• " + t).join("\n");
+                                        }
+                                        return "Sin temas asignados esta semana.";
+                                    }
+                                    font.pixelSize: Kirigami.Units.gridUnit * 0.65
+                                    wrapMode: Text.WordWrap
+                                    opacity: 0.8
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Separator if subjects exist
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.1
+                    visible: root.subjectsModel && root.subjectsModel.length > 0
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                    Layout.bottomMargin: Kirigami.Units.smallSpacing
+                }
+            }
 
             // Group section headers
             section.property: "urgency"
@@ -301,7 +300,7 @@ Item {
             // Empty state
             PlasmaComponents.Label {
                 anchors.centerIn: parent
-                visible: root.eventCount === 0
+                visible: root.eventCount === 0 && (!root.subjectsModel || root.subjectsModel.length === 0)
                 text: "📅 Sin eventos próximos\nAgregá eventos desde la aplicación"
                 horizontalAlignment: Text.AlignHCenter
                 opacity: 0.5

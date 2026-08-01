@@ -94,8 +94,19 @@ def process_subjects(today: date) -> list[CurrentSubjectWeek]:
             logger.error("Fecha de inicio inválida para la materia '%s': %s", subj.name, subj.start_date)
             continue
             
+        if not subj.syllabus:
+            continue
+            
         elapsed_days = (today - start_date).days
         week_number = elapsed_days // 7 + 1
+        
+        if week_number < 1:
+            continue
+            
+        max_end_week = max(e.end_week for e in subj.syllabus)
+        if week_number > max_end_week:
+            continue
+            
         day_of_week = elapsed_days % 7 + 1
         
         week_start = start_date + timedelta(days=(week_number - 1) * 7)
@@ -104,8 +115,7 @@ def process_subjects(today: date) -> list[CurrentSubjectWeek]:
         topics = []
         for entry in subj.syllabus:
             if entry.start_week <= week_number <= entry.end_week:
-                if entry.topic and entry.topic.strip():
-                    topics.append(entry.topic.strip())
+                topics.append(entry.topic)
                     
         current_subjects.append(CurrentSubjectWeek(
             subject_id=subj.id,

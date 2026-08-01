@@ -270,9 +270,17 @@ def read_subjects() -> list[SubjectSyllabus]:
     """Lee las materias y temarios del usuario."""
     ensure_dirs()
     data = _read_json(SUBJECTS_FILE, default=[])
+    
+    subjects = []
     if isinstance(data, list):
-        return [SubjectSyllabus.from_dict(s) for s in data]
-    return []
+        for s in data:
+            if not isinstance(s, dict):
+                continue
+            try:
+                subjects.append(SubjectSyllabus.from_dict(s))
+            except Exception as e:
+                logger.warning("Error leyendo materia: %s", e)
+    return subjects
 
 
 def write_subjects(subjects: list[SubjectSyllabus]) -> None:

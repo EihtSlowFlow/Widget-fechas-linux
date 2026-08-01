@@ -117,9 +117,16 @@ class SyllabusEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> SyllabusEntry:
-        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
-        filtered = {k: v for k, v in data.items() if k in valid_fields}
-        return cls(**filtered)
+        sw = int(data.get("start_week", 0))
+        ew = int(data.get("end_week", 0))
+        topic = str(data.get("topic", "")).strip()
+        
+        if sw < 1 or ew < sw:
+            raise ValueError(f"Semanas inválidas: start={sw}, end={ew}")
+        if not topic:
+            raise ValueError("Tema vacío")
+            
+        return cls(start_week=sw, end_week=ew, topic=topic)
 
 
 @dataclass
@@ -137,11 +144,35 @@ class SubjectSyllabus:
 
     @classmethod
     def from_dict(cls, data: dict) -> SubjectSyllabus:
-        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
-        filtered = {k: v for k, v in data.items() if k in valid_fields and k != 'syllabus'}
-        syllabus_data = data.get('syllabus', [])
-        syllabus = [SyllabusEntry.from_dict(e) for e in syllabus_data]
-        return cls(**filtered, syllabus=syllabus)
+        name = str(data.get("name", "")).strip()
+        start_date = str(data.get("start_date", "")).strip()
+        
+        if not name:
+            raise ValueError("Nombre de materia vacío")
+            
+        # Validar formato ISO 8601
+        date.fromisoformat(start_date)
+        
+        syllabus_data = data.get("syllabus", [])
+        if not isinstance(syllabus_data, list):
+            syllabus_data = []
+            
+        syllabus = []
+        for e in syllabus_data:
+            if not isinstance(e, dict):
+                continue
+            try:
+                syllabus.append(SyllabusEntry.from_dict(e))
+            except (ValueError, TypeError):
+                # Descartar solo la entrada corrupta
+                continue
+                
+        # Mantener el ID original o generar uno si no existe
+        subj_id = data.get("id")
+        if not subj_id or not isinstance(subj_id, str):
+            subj_id = str(uuid.uuid4())
+            
+        return cls(name=name, start_date=start_date, id=subj_id, syllabus=syllabus)
 
 
 @dataclass

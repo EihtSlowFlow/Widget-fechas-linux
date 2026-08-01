@@ -48,9 +48,13 @@ Item {
             anchors.centerIn: parent
             text: {
                 if (!root.subjectsModel || root.subjectsModel.length === 0) return "";
-                var s = root.subjectsModel[0];
                 var n = root.subjectsModel.length;
-                return "📚 Semana " + s.week_number + " · día " + s.day_of_week + "/7 · " + n + (n === 1 ? " materia" : " materias");
+                if (n === 1) {
+                    var s = root.subjectsModel[0];
+                    return "📚 " + s.subject_name + " (Semana " + s.week_number + ")";
+                } else {
+                    return "📚 " + n + " materias en curso";
+                }
             }
             font.pixelSize: Kirigami.Units.gridUnit * 0.6
             font.bold: true
