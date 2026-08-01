@@ -78,11 +78,11 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(new_btn)
 
         # Sync button
-        sync_btn = QPushButton("🔄 Sincronizar")
-        sync_btn.setObjectName("secondaryButton")
-        sync_btn.setFixedHeight(38)
-        sync_btn.clicked.connect(self._force_sync)
-        top_bar.addWidget(sync_btn)
+        self._sync_btn = QPushButton("🔄 Sincronizar")
+        self._sync_btn.setObjectName("secondaryButton")
+        self._sync_btn.setFixedHeight(38)
+        self._sync_btn.clicked.connect(self._force_sync)
+        top_bar.addWidget(self._sync_btn)
 
         main_layout.addLayout(top_bar)
 
@@ -179,19 +179,62 @@ class MainWindow(QMainWindow):
             self._force_sync()
 
     def _force_sync(self):
-        """Ejecuta la sincronización en segundo plano."""
-        import subprocess
+        """Ejecuta la sincronización utilizando QProcess."""
+        from PyQt6.QtCore import QProcess
+        
+        if hasattr(self, '_sync_process') and self._sync_process.state() != QProcess.ProcessState.NotRunning:
+            self._status_sync.setText("🔄 Sincronización ya en curso...")
+            return
+
         project_dir = Path(__file__).resolve().parent.parent
-        try:
-            subprocess.Popen(
-                ["python3", str(project_dir / "backend" / "fechas_sync.py")],
-                cwd=str(project_dir),
-            )
-            self._status_sync.setText("🔄 Sincronizando...")
-            # Reload after delay
-            QTimer.singleShot(5000, self._load_data)
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"No se pudo sincronizar: {e}")
+        
+        self._sync_process = QProcess(self)
+        self._sync_process.setWorkingDirectory(str(project_dir))
+        
+        def on_finished(exit_code, exit_status):
+            if hasattr(self, '_sync_timeout_timer'):
+                self._sync_timeout_timer.stop()
+            self._sync_btn.setEnabled(True)
+            self._sync_btn.setText("🔄 Sincronizar")
+            
+            if exit_code == 3:
+                self._status_sync.setText("🔄 Sincronización ya en curso (bloqueado)...")
+                # Intenta recargar después de unos segundos
+                QTimer.singleShot(3000, self._load_data)
+            elif exit_code == 0:
+                self._load_data()
+            else:
+                QMessageBox.warning(self, "Error", f"Error en sincronización (código {exit_code})")
+                self._load_data()
+                
+        self._sync_process.finished.connect(on_finished)
+        
+        def on_error(error):
+            if hasattr(self, '_sync_timeout_timer'):
+                self._sync_timeout_timer.stop()
+            self._sync_btn.setEnabled(True)
+            self._sync_btn.setText("🔄 Sincronizar")
+            QMessageBox.warning(self, "Error", f"No se pudo iniciar la sincronización: {error}")
+            self._load_data()
+            
+        self._sync_process.errorOccurred.connect(on_error)
+        
+        def on_timeout():
+            self._sync_btn.setEnabled(True)
+            self._sync_btn.setText("🔄 Sincronizar")
+            self._status_sync.setText("🔄 Sincronización en segundo plano...")
+            
+        self._sync_timeout_timer = QTimer(self)
+        self._sync_timeout_timer.setSingleShot(True)
+        self._sync_timeout_timer.timeout.connect(on_timeout)
+        self._sync_timeout_timer.start(120000)
+        
+        self._sync_btn.setEnabled(False)
+        self._sync_btn.setText("🔄 Sincronizando...")
+        self._status_sync.setText("🔄 Sincronizando...")
+        
+        self._sync_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py")])
+
 
     def _on_source_changed(self):
         """Recarga datos cuando se modifica una fuente."""

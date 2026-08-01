@@ -18,6 +18,7 @@ PlasmoidItem {
     property string syncStatus: "pending"
     property string syncError: ""
     property int eventCount: 0
+    property bool isSyncing: false
 
     // ─── Paths (resolved dynamically at startup) ─────────────
     property string userHome: ""
@@ -74,20 +75,65 @@ PlasmoidItem {
     }
 
     // ─── Force sync ──────────────────────────────────────────
-    function forceSync() {
-        if (installDir) {
-            appLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py &");
-            // Reload cache after a delay to pick up new data
-            reloadDelayTimer.start();
+    Plasma5Support.DataSource {
+        id: syncLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            var exitCode = data["exit code"];
+            var stdout = data["stdout"] || "";
+            
+            syncTimeoutTimer.stop();
+            
+            if (exitCode === 3) {
+                console.log("[FechasAcadémicas] Sync already running (code 3).");
+                root.syncStatus = "already_running";
+                delayedReloadTimer.start();
+            } else if (exitCode === 0) {
+                console.log("[FechasAcadémicas] Sync finished successfully.");
+                reloadCache();
+            } else {
+                console.log("[FechasAcadémicas] Sync error (code " + exitCode + "). Output: " + stdout);
+                reloadCache();
+            }
+            
+            root.isSyncing = false;
+            disconnectSource(sourceName);
         }
     }
 
     Timer {
-        id: reloadDelayTimer
-        interval: 5000
+        id: delayedReloadTimer
+        interval: 3000
         running: false
         repeat: false
-        onTriggered: reloadCache()
+        onTriggered: {
+            // Restore status from cache if we temporarily set it to already_running
+            if (root.syncStatus === "already_running") {
+                root.syncStatus = "pending"; // Fallback, reloadCache will overwrite it
+            }
+            reloadCache();
+        }
+    }
+
+    Timer {
+        id: syncTimeoutTimer
+        interval: 120000 // 120 seconds
+        running: false
+        repeat: false
+        onTriggered: {
+            console.log("[FechasAcadémicas] Sync timed out in UI.");
+            root.isSyncing = false;
+            root.syncStatus = "background";
+        }
+    }
+
+    function forceSync() {
+        if (installDir && !root.isSyncing) {
+            root.isSyncing = true;
+            syncTimeoutTimer.start();
+            syncLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py");
+        }
     }
 
     // ─── Refresh timer (reread cache every 60s) ──────────────
