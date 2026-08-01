@@ -203,6 +203,8 @@ class MainWindow(QMainWindow):
                 if not self._is_polling_lock:
                     return
                 if code == 0:
+                    if hasattr(self, '_sync_timeout_timer'):
+                        self._sync_timeout_timer.stop()
                     self._is_polling_lock = False
                     self._sync_btn.setEnabled(True)
                     self._sync_btn.setText("🔄 Sincronizar")
@@ -211,6 +213,8 @@ class MainWindow(QMainWindow):
                     QTimer.singleShot(3000, _check_lock)
                     
             def on_lock_check_error(error):
+                if hasattr(self, '_sync_timeout_timer'):
+                    self._sync_timeout_timer.stop()
                 self._is_polling_lock = False
                 self._sync_btn.setEnabled(True)
                 self._sync_btn.setText("🔄 Sincronizar")
@@ -221,22 +225,23 @@ class MainWindow(QMainWindow):
             self._lock_check_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py"), "--check-lock"])
 
         def on_finished(exit_code, exit_status):
-            if hasattr(self, '_sync_timeout_timer'):
-                self._sync_timeout_timer.stop()
-            
             if exit_code == 3:
                 self._status_sync.setText("🔄 Sincronización ya en curso (esperando)...")
                 self._is_polling_lock = True
                 QTimer.singleShot(3000, _check_lock)
-            elif exit_code == 0:
-                self._sync_btn.setEnabled(True)
-                self._sync_btn.setText("🔄 Sincronizar")
-                self._load_data()
             else:
-                self._sync_btn.setEnabled(True)
-                self._sync_btn.setText("🔄 Sincronizar")
-                QMessageBox.warning(self, "Error", f"Error en sincronización (código {exit_code})")
-                self._load_data()
+                if hasattr(self, '_sync_timeout_timer'):
+                    self._sync_timeout_timer.stop()
+
+                if exit_code == 0:
+                    self._sync_btn.setEnabled(True)
+                    self._sync_btn.setText("🔄 Sincronizar")
+                    self._load_data()
+                else:
+                    self._sync_btn.setEnabled(True)
+                    self._sync_btn.setText("🔄 Sincronizar")
+                    QMessageBox.warning(self, "Error", f"Error en sincronización (código {exit_code})")
+                    self._load_data()
                 
         self._sync_process.finished.connect(on_finished)
         
