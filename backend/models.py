@@ -106,6 +106,97 @@ class DataSource:
 
 
 @dataclass
+class SyllabusEntry:
+    """Representa una entrada en el temario de una materia."""
+    start_week: int
+    end_week: int
+    topic: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SyllabusEntry:
+        sw = int(data.get("start_week", 0))
+        ew = int(data.get("end_week", 0))
+        topic = str(data.get("topic", "")).strip()
+        
+        if sw < 1 or ew < sw:
+            raise ValueError(f"Semanas inválidas: start={sw}, end={ew}")
+        if not topic:
+            raise ValueError("Tema vacío")
+            
+        return cls(start_week=sw, end_week=ew, topic=topic)
+
+
+@dataclass
+class SubjectSyllabus:
+    """Representa una materia con su temario y fecha de inicio."""
+    name: str
+    start_date: str                     # ISO 8601: "2026-06-20"
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    syllabus: list[SyllabusEntry] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d['syllabus'] = [entry.to_dict() for entry in self.syllabus]
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SubjectSyllabus:
+        name = str(data.get("name", "")).strip()
+        start_date = str(data.get("start_date", "")).strip()
+        
+        if not name:
+            raise ValueError("Nombre de materia vacío")
+            
+        # Validar formato ISO 8601
+        date.fromisoformat(start_date)
+        
+        syllabus_data = data.get("syllabus", [])
+        if not isinstance(syllabus_data, list):
+            syllabus_data = []
+            
+        syllabus = []
+        for e in syllabus_data:
+            if not isinstance(e, dict):
+                continue
+            try:
+                syllabus.append(SyllabusEntry.from_dict(e))
+            except (ValueError, TypeError):
+                # Descartar solo la entrada corrupta
+                continue
+                
+        # Mantener el ID original o generar uno si no existe
+        subj_id = data.get("id")
+        if not subj_id or not isinstance(subj_id, str):
+            subj_id = str(uuid.uuid4())
+            
+        return cls(name=name, start_date=start_date, id=subj_id, syllabus=syllabus)
+
+
+@dataclass
+class CurrentSubjectWeek:
+    """Estado actual de una materia en su semana en curso."""
+    subject_id: str
+    subject_name: str
+    week_number: int
+    day_of_week: int
+    week_start: str                     # ISO 8601 Date
+    week_end: str                       # ISO 8601 Date
+    topics: list[str]
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> CurrentSubjectWeek:
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered)
+
+
+@dataclass
 class CacheData:
     """Estructura completa del cache.json."""
 
@@ -113,6 +204,7 @@ class CacheData:
     sync_status: str = "pending"        # "ok", "error", "pending"
     sync_error: Optional[str] = None
     events: list[dict] = field(default_factory=list)
+    current_subjects: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convierte a diccionario para serialización JSON."""
@@ -126,4 +218,5 @@ class CacheData:
             sync_status=data.get("sync_status", "pending"),
             sync_error=data.get("sync_error"),
             events=data.get("events", []),
+            current_subjects=data.get("current_subjects", []),
         )

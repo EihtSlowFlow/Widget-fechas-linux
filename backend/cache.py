@@ -21,9 +21,10 @@ from backend.config import (
     COMPLETED_EVENTS_FILE,
     SOURCES_FILE,
     MANUAL_EVENTS_FILE,
+    SUBJECTS_FILE,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, DataSource
+from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus
 
 logger = logging.getLogger("fechas.cache")
 
@@ -261,3 +262,28 @@ def write_manual_events(events: list[AcademicEvent]) -> None:
     """Escribe eventos manuales de forma atómica."""
     ensure_dirs()
     _atomic_write_json(MANUAL_EVENTS_FILE, [e.to_dict() for e in events])
+
+
+# ─── Materias (subjects.json) ─────────────────────────────────────
+
+def read_subjects() -> list[SubjectSyllabus]:
+    """Lee las materias y temarios del usuario."""
+    ensure_dirs()
+    data = _read_json(SUBJECTS_FILE, default=[])
+    
+    subjects = []
+    if isinstance(data, list):
+        for s in data:
+            if not isinstance(s, dict):
+                continue
+            try:
+                subjects.append(SubjectSyllabus.from_dict(s))
+            except Exception as e:
+                logger.warning("Error leyendo materia: %s", e)
+    return subjects
+
+
+def write_subjects(subjects: list[SubjectSyllabus]) -> None:
+    """Escribe las materias de forma atómica."""
+    ensure_dirs()
+    _atomic_write_json(SUBJECTS_FILE, [s.to_dict() for s in subjects])

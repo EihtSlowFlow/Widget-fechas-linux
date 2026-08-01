@@ -23,6 +23,7 @@ from app.styles.theme import DARK_PALETTE, get_urgency_style
 from app.views.timeline_view import TimelineView
 from app.views.calendar_view import CalendarView
 from app.views.sources_view import SourcesView
+from app.views.subjects_view import SubjectsView
 from app.dialogs.event_dialog import EventDialog
 
 
@@ -93,6 +94,10 @@ class MainWindow(QMainWindow):
 
         self._calendar_view = CalendarView()
         self._tabs.addTab(self._calendar_view, "📅 Calendario")
+
+        self._subjects_view = SubjectsView()
+        self._subjects_view.subjects_changed.connect(self._on_source_changed)
+        self._tabs.addTab(self._subjects_view, "📚 Materias")
 
         self._sources_view = SourcesView()
         self._sources_view.source_changed.connect(self._on_source_changed)

@@ -24,15 +24,50 @@ Item {
     // ─── No events fallback ──────────────────────────────────
     PlasmaComponents.Label {
         anchors.centerIn: parent
-        visible: root.eventCount === 0
+        visible: root.eventCount === 0 && (!root.subjectsModel || root.subjectsModel.length === 0)
         text: "📅 Sin eventos próximos"
         opacity: 0.6
         font.pixelSize: Kirigami.Units.gridUnit * 0.9
     }
 
+    // ─── Subjects Banner ─────────────────────────────────────
+    Rectangle {
+        id: subjectsBanner
+        visible: root.subjectsModel && root.subjectsModel.length > 0
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: Kirigami.Units.smallSpacing
+        anchors.rightMargin: Kirigami.Units.smallSpacing
+        anchors.topMargin: Kirigami.Units.smallSpacing
+        height: visible ? (Kirigami.Units.gridUnit * 1.2) : 0
+        radius: Kirigami.Units.cornerRadius
+        color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.2)
+        
+        PlasmaComponents.Label {
+            anchors.centerIn: parent
+            text: {
+                if (!root.subjectsModel || root.subjectsModel.length === 0) return "";
+                var n = root.subjectsModel.length;
+                if (n === 1) {
+                    var s = root.subjectsModel[0];
+                    return "📚 " + s.subject_name + " (Semana " + s.week_number + ")";
+                } else {
+                    return "📚 " + n + " materias en curso";
+                }
+            }
+            font.pixelSize: Kirigami.Units.gridUnit * 0.6
+            font.bold: true
+            color: Kirigami.Theme.highlightColor
+        }
+    }
+
     // ─── Carousel ────────────────────────────────────────────
     ColumnLayout {
-        anchors.fill: parent
+        anchors.top: subjectsBanner.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
         anchors.margins: Kirigami.Units.smallSpacing
         visible: root.eventCount > 0
         spacing: 2

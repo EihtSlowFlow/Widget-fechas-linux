@@ -19,18 +19,25 @@ echo ""
 
 # ─── 1. Dependencias Python ──────────────────────────────
 echo "📦 [1/6] Instalando dependencias Python..."
-pip3 install --user --break-system-packages \
-    icalendar>=6.0.0 \
-    recurring-ical-events>=3.0.0 \
-    python-dateutil>=2.9.0 \
-    beautifulsoup4>=4.12.0 \
-    lxml>=5.0.0 \
-    2>/dev/null || pip3 install --user \
-    icalendar>=6.0.0 \
-    recurring-ical-events>=3.0.0 \
-    python-dateutil>=2.9.0 \
-    beautifulsoup4>=4.12.0 \
-    lxml>=5.0.0
+if command -v apt-get &> /dev/null; then
+    echo "   → Detectado sistema basado en Debian/Ubuntu. Usando apt para instalar paquetes del sistema..."
+    sudo apt-get update
+    sudo apt-get install -y python3-icalendar python3-recurring-ical-events python3-dateutil python3-bs4 python3-lxml python3-requests
+else
+    echo "   → Usando pip3 para instalar dependencias..."
+    pip3 install --user --break-system-packages \
+        icalendar>=6.0.0 \
+        recurring-ical-events>=3.0.0 \
+        python-dateutil>=2.9.0 \
+        beautifulsoup4>=4.12.0 \
+        lxml>=5.0.0 \
+        2>/dev/null || pip3 install --user \
+        icalendar>=6.0.0 \
+        recurring-ical-events>=3.0.0 \
+        python-dateutil>=2.9.0 \
+        beautifulsoup4>=4.12.0 \
+        lxml>=5.0.0
+fi
 echo "   ✓ Dependencias instaladas"
 
 # ─── 2. Directorios de datos ─────────────────────────────
