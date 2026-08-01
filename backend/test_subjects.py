@@ -144,6 +144,67 @@ class TestSubjectSyllabus(unittest.TestCase):
             self.assertEqual(len(subjects), 1)
             self.assertEqual(subjects[0].name, "Valid")
 
+    def test_pipeline_integration(self):
+        import json
+        from backend.fechas_sync import sync
+        import backend.config
+        import tempfile
+        import os
+        from pathlib import Path
+        from unittest.mock import patch
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            data_dir = tmp_path / "data"
+            config_dir = tmp_path / "config"
+            
+            # Use patch to properly override the constants imported into backend.cache
+            with patch("backend.config.DATA_DIR", data_dir), \
+                 patch("backend.config.CONFIG_DIR", config_dir), \
+                 patch("backend.cache.CACHE_FILE", data_dir / "cache.json"), \
+                 patch("backend.cache.KNOWN_EVENTS_FILE", data_dir / "known_events.json"), \
+                 patch("backend.cache.SEEN_EVENTS_FILE", data_dir / "seen_events.json"), \
+                 patch("backend.cache.COMPLETED_EVENTS_FILE", data_dir / "completed_events.json"), \
+                 patch("backend.cache.SOURCES_FILE", config_dir / "sources.json"), \
+                 patch("backend.cache.MANUAL_EVENTS_FILE", config_dir / "manual_events.json"), \
+                 patch("backend.cache.SUBJECTS_FILE", config_dir / "subjects.json"), \
+                 patch("backend.config.SUBJECTS_FILE", config_dir / "subjects.json"):
+                 
+                backend.config.ensure_dirs()
+                
+                # 1. Write subjects.json
+                test_subj = [
+                    {
+                        "name": "Integration Subject",
+                        "start_date": str(date.today()), # Starts today, so week 1
+                        "id": "int1",
+                        "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Integración"}]
+                    }
+                ]
+                with open(config_dir / "subjects.json", 'w', encoding='utf-8') as f:
+                    json.dump(test_subj, f)
+                    
+                # 2. Provide empty files to avoid external requests or pollution
+                with open(config_dir / "sources.json", 'w', encoding='utf-8') as f:
+                    json.dump([], f)
+                with open(config_dir / "manual_events.json", 'w', encoding='utf-8') as f:
+                    json.dump([], f)
+                    
+                # 3. Run sync
+                sync()
+                
+                # 4. Verify cache.json
+                cache_file = data_dir / "cache.json"
+                self.assertTrue(cache_file.exists())
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                    
+                self.assertIn("current_subjects", cache_data)
+                self.assertEqual(len(cache_data["current_subjects"]), 1)
+                self.assertEqual(cache_data["current_subjects"][0]["subject_id"], "int1")
+                self.assertEqual(cache_data["current_subjects"][0]["week_number"], 1)
+                self.assertEqual(cache_data["current_subjects"][0]["topics"], ["Integración"])
+
 
 if __name__ == "__main__":
     unittest.main()

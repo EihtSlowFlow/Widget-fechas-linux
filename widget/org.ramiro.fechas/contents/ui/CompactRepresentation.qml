@@ -24,7 +24,7 @@ Item {
     // ─── No events fallback ──────────────────────────────────
     PlasmaComponents.Label {
         anchors.centerIn: parent
-        visible: root.eventCount === 0
+        visible: root.eventCount === 0 && (!root.subjectsModel || root.subjectsModel.length === 0)
         text: "📅 Sin eventos próximos"
         opacity: 0.6
         font.pixelSize: Kirigami.Units.gridUnit * 0.9
