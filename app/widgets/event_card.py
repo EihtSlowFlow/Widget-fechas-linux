@@ -37,6 +37,8 @@ class EventCard(QFrame):
     completion_toggled = pyqtSignal(str, bool)  # (event_id, is_completed)
     # Señal emitida cuando el badge "Nuevo" debe desaparecer
     new_dismissed = pyqtSignal(str)  # event_id
+    # Señal emitida cuando se solicita edición manual
+    edit_requested = pyqtSignal(dict)  # event_data
 
     def __init__(self, event_data: dict, parent=None):
         super().__init__(parent)
@@ -277,6 +279,27 @@ class EventCard(QFrame):
         """)
         cat_label.setFixedHeight(22)
         right_col.addWidget(cat_label)
+        
+        # Botón de edición (sólo eventos manuales)
+        if e.get("is_manual") is True:
+            self._edit_btn = QPushButton("✏ Editar")
+            self._edit_btn.setFixedHeight(24)
+            self._edit_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DARK_PALETTE['text_secondary']};
+                    border: 1px solid {DARK_PALETTE['border']};
+                    border-radius: 10px;
+                    font-size: 10px;
+                    padding: 3px 10px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DARK_PALETTE['bg_hover']};
+                }}
+            """)
+            self._edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._edit_btn.clicked.connect(lambda: self.edit_requested.emit(self.event_data))
+            right_col.addWidget(self._edit_btn)
 
         layout.addLayout(right_col)
 

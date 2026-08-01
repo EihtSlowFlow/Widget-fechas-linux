@@ -16,6 +16,7 @@ class TimelineView(QWidget):
     """Vista principal de timeline con tarjetas de eventos."""
 
     event_clicked = pyqtSignal(dict)  # Emitida al hacer clic en un evento
+    event_edit_requested = pyqtSignal(dict)  # Emitida al solicitar edición de evento manual
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -163,6 +164,8 @@ class TimelineView(QWidget):
                 card = EventCard(e)
                 # Conectar señal de completado → refrescar tarjetas
                 card.completion_toggled.connect(self._on_completion_toggled)
+                # Conectar señal de edición
+                card.edit_requested.connect(self.event_edit_requested.emit)
                 self._cards_layout.insertWidget(insert_idx, card)
                 insert_idx += 1
 
