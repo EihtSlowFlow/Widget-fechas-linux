@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import fcntl
 from datetime import date, datetime, timedelta
 
 # Agregar el directorio padre al path para imports
@@ -27,6 +28,7 @@ from backend.config import (
     LOG_FORMAT,
     LOG_DATE_FORMAT,
     MAX_RETRIES,
+    SYNC_LOCK_FILE,
     ensure_dirs,
 )
 from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek
@@ -287,6 +289,11 @@ def main():
         action="store_true",
         help="Mostrar logging detallado",
     )
+    parser.add_argument(
+        "--check-lock",
+        action="store_true",
+        help="Sólo comprueba si hay una sincronización en curso. Retorna 3 si está bloqueado, 0 si está libre.",
+    )
     args = parser.parse_args()
 
     # Configurar logging
@@ -299,12 +306,37 @@ def main():
     )
 
     try:
-        cache = sync(dry_run=args.dry_run)
-        sys.exit(0)
-    except Exception as e:
-        logger.critical("Error fatal en sincronización: %s", e, exc_info=True)
-        sys.exit(1)
+        ensure_dirs()
+        lock_file = open(SYNC_LOCK_FILE, "w")
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            if args.check_lock:
+                sys.exit(3)
+            logger.warning("Ya hay una sincronización en curso. Abortando.")
+            print("ALREADY_RUNNING")
+            sys.exit(3)
+            
+        if args.check_lock:
+            # We acquired the lock successfully, so no sync is running.
+            sys.exit(0)
 
+        try:
+            cache = sync(dry_run=args.dry_run)
+            print("SYNC_SUCCESS")
+            sys.exit(0)
+        except Exception as e:
+            logger.critical("Error fatal en sincronización: %s", e, exc_info=True)
+            print("SYNC_ERROR")
+            sys.exit(1)
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.critical("Error fatal: %s", e, exc_info=True)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -329,7 +329,8 @@ Item {
 
             PlasmaComponents.ToolButton {
                 icon.name: "view-refresh"
-                PlasmaComponents.ToolTip { text: "Sincronizar ahora" }
+                enabled: !root.isSyncing
+                PlasmaComponents.ToolTip { text: root.isSyncing ? "Sincronizando..." : "Sincronizar ahora" }
                 onClicked: root.forceSync()
             }
 

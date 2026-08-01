@@ -18,6 +18,8 @@ PlasmoidItem {
     property string syncStatus: "pending"
     property string syncError: ""
     property int eventCount: 0
+    property bool isSyncing: false
+    property bool pollingExistingSync: false
 
     // ─── Paths (resolved dynamically at startup) ─────────────
     property string userHome: ""
@@ -74,20 +76,91 @@ PlasmoidItem {
     }
 
     // ─── Force sync ──────────────────────────────────────────
-    function forceSync() {
-        if (installDir) {
-            appLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py &");
-            // Reload cache after a delay to pick up new data
-            reloadDelayTimer.start();
+    Plasma5Support.DataSource {
+        id: syncLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            var exitCode = data["exit code"];
+            var stdout = data["stdout"] || "";
+            
+            if (exitCode === 3) {
+                console.log("[FechasAcadémicas] Sync already running (code 3). Polling lock...");
+                root.syncStatus = "already_running";
+                root.pollingExistingSync = true;
+                lockCheckTimer.start();
+            } else {
+                syncTimeoutTimer.stop();
+                if (exitCode === 0) {
+                    console.log("[FechasAcadémicas] Sync finished successfully.");
+                    root.isSyncing = false;
+                    reloadCache();
+                } else {
+                    console.log("[FechasAcadémicas] Sync error (code " + exitCode + "). Output: " + stdout);
+                    root.isSyncing = false;
+                    reloadCache();
+                }
+            }
+            
+            disconnectSource(sourceName);
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: lockCheckLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            var exitCode = data["exit code"];
+            
+            if (exitCode === 0) {
+                console.log("[FechasAcadémicas] Lock is free, reloading cache.");
+                root.isSyncing = false;
+                root.pollingExistingSync = false;
+                syncTimeoutTimer.stop();
+                reloadCache();
+            } else {
+                // Sigue ocupado. Volvemos a consultar si debemos seguir haciéndolo
+                if (root.pollingExistingSync) {
+                    lockCheckTimer.start();
+                }
+            }
+            disconnectSource(sourceName);
         }
     }
 
     Timer {
-        id: reloadDelayTimer
-        interval: 5000
+        id: lockCheckTimer
+        interval: 3000
         running: false
         repeat: false
-        onTriggered: reloadCache()
+        onTriggered: {
+            if (installDir && root.pollingExistingSync) {
+                lockCheckLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py --check-lock");
+            }
+        }
+    }
+
+    Timer {
+        id: syncTimeoutTimer
+        interval: 120000 // 120 seconds
+        running: false
+        repeat: false
+        onTriggered: {
+            console.log("[FechasAcadémicas] Sync timed out in UI.");
+            root.syncStatus = "background";
+            root.pollingExistingSync = false; // Detener el polling
+            root.isSyncing = false; // Habilitamos la interfaz explícitamente tras el timeout
+        }
+    }
+
+    function forceSync() {
+        if (installDir && !root.isSyncing) {
+            root.isSyncing = true;
+            root.pollingExistingSync = false;
+            syncTimeoutTimer.start();
+            syncLauncher.connectSource("python3 " + installDir + "/backend/fechas_sync.py");
+        }
     }
 
     // ─── Refresh timer (reread cache every 60s) ──────────────
