@@ -180,6 +180,21 @@ def toggle_completed(event_id: str) -> bool:
         completed.add(event_id)
         result = True
     _atomic_write_json(COMPLETED_EVENTS_FILE, list(completed))
+
+    # Actualizar cache.json inmediatamente para que el widget y la UI se sincronicen
+    try:
+        cache_data = read_cache()
+        if cache_data and cache_data.events:
+            updated = False
+            for e in cache_data.events:
+                if e.get("id") == event_id:
+                    e["is_completed"] = result
+                    updated = True
+            if updated:
+                write_cache(cache_data)
+    except Exception as e:
+        logger.warning("No se pudo actualizar cache.json al cambiar completado: %s", e)
+
     return result
 
 

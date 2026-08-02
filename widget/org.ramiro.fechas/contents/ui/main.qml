@@ -45,7 +45,8 @@ PlasmoidItem {
                     root.lastSync = json.last_sync || "";
                     root.syncStatus = json.sync_status || "pending";
                     root.syncError = json.sync_error || "";
-                    root.eventsModel = json.events || [];
+                    var allEvents = json.events || [];
+                    root.eventsModel = allEvents.filter(function(e) { return e.is_completed !== true; });
                     root.eventCount = root.eventsModel.length;
                     root.subjectsModel = json.current_subjects || [];
                     console.log("[FechasAcadémicas] Loaded " + root.eventCount + " events, " + root.subjectsModel.length + " subjects");
@@ -244,11 +245,8 @@ PlasmoidItem {
 
     toolTipMainText: "Fechas Académicas"
     toolTipSubText: {
-        var pending = eventsModel.filter(function(event) {
-            return event.is_completed !== true;
-        });
-        if (pending.length === 0) return "Sin eventos próximos";
-        var next = pending[0];
+        if (eventsModel.length === 0) return "Sin eventos próximos";
+        var next = eventsModel[0];
         return next.title + " en " + next.days_remaining + " días";
     }
 }
