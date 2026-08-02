@@ -107,6 +107,13 @@ class EventDialog(QDialog):
 
         # Buttons
         btn_layout = QHBoxLayout()
+
+        if self._is_editing:
+            delete_btn = QPushButton("🗑 Eliminar")
+            delete_btn.setObjectName("dangerButton")
+            delete_btn.clicked.connect(self._delete_event)
+            btn_layout.addWidget(delete_btn)
+
         btn_layout.addStretch()
 
         cancel_btn = QPushButton("Cancelar")
@@ -185,3 +192,20 @@ class EventDialog(QDialog):
     def get_event(self) -> AcademicEvent:
         """Devuelve el evento creado o editado."""
         return getattr(self, "_updated_event", None)
+
+    def _delete_event(self):
+        from PyQt6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "Eliminar Evento",
+            f"¿Estás seguro que deseas eliminar '{self._title_edit.text()}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._deleted = True
+            self.accept()
+
+    def is_deleted(self) -> bool:
+        return getattr(self, "_deleted", False)
+
+    def get_event_id(self) -> str:
+        return self._event_data.get("id", "") if self._event_data else ""

@@ -37,6 +37,8 @@ class MainWindow(QMainWindow):
         self.resize(1050, 700)
         self._events = []
         self._sync_required_after_unlock = False
+        self._pending_full_sync = False
+        self._pending_source_ids = set()
         self._setup_ui()
         self._load_data()
         self._start_auto_refresh()
@@ -104,6 +106,7 @@ class MainWindow(QMainWindow):
 
         self._sources_view = SourcesView()
         self._sources_view.source_changed.connect(self._on_source_changed)
+        self._sources_view.sync_requested.connect(self._force_sync)
         self._tabs.addTab(self._sources_view, "⚙ Fuentes")
 
         main_layout.addWidget(self._tabs)
@@ -148,19 +151,25 @@ class MainWindow(QMainWindow):
             self._status_sync.setText("🔄 Sin sincronizar")
 
         if self._events:
-            next_event = self._events[0]
-            days = next_event.get("days_remaining", 0)
-            title = next_event.get("title", "")[:40]
-            urgency = next_event.get("urgency", "green")
-            color = get_urgency_style(urgency)
-            if days == 0:
-                self._status_next.setText(f"⚠ <b>HOY</b>: {title}")
-            elif days == 1:
-                self._status_next.setText(f"Próximo: <b>{title}</b> — mañana")
-            elif days < 0:
-                self._status_next.setText(f"⚠ <b>VENCIDO</b>: {title}")
+            pending_events = [e for e in self._events if not e.get("is_completed")]
+            if pending_events:
+                next_event = pending_events[0]
+                days = next_event.get("days_remaining", 0)
+                title = next_event.get("title", "")[:40]
+                urgency = next_event.get("urgency", "green")
+                color = get_urgency_style(urgency)
+                if days == 0:
+                    self._status_next.setText(f"⚠ <b>HOY</b>: {title}")
+                elif days == 1:
+                    self._status_next.setText(f"Próximo: <b>{title}</b> — mañana")
+                elif days < 0:
+                    self._status_next.setText(f"⚠ <b>VENCIDO</b>: {title}")
+                else:
+                    self._status_next.setText(f"Próximo: <b>{title}</b> en {days} días")
             else:
-                self._status_next.setText(f"Próximo: <b>{title}</b> en {days} días")
+                self._status_next.clear()
+        else:
+            self._status_next.clear()
 
         # Count new events
         new_count = sum(1 for e in self._events if e.get("is_new"))
@@ -187,7 +196,7 @@ class MainWindow(QMainWindow):
                 manual_events = read_manual_events()
                 manual_events.append(new_event)
                 write_manual_events(manual_events)
-                self._force_sync()
+                self._force_sync(source_id="manual")
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"No se pudo crear el evento: {e}")
 
@@ -199,16 +208,32 @@ class MainWindow(QMainWindow):
         dialog = EventDialog(event_data=event_data, parent=self)
         if dialog.exec():
             try:
-                updated_event = dialog.get_event()
-                update_manual_event(event_data["id"], updated_event)
-                self._force_sync()
+                if dialog.is_deleted():
+                    from backend.cache import delete_manual_event
+                    delete_manual_event(dialog.get_event_id())
+                    self._force_sync(source_id="manual")
+                else:
+                    updated_event = dialog.get_event()
+                    update_manual_event(event_data["id"], updated_event)
+                    self._force_sync(source_id="manual")
             except ValueError as error:
-                QMessageBox.warning(self, "No se pudo editar", str(error))
+                QMessageBox.warning(self, "Error", str(error))
 
-    def _force_sync(self):
+    def _force_sync(self, source_id: str = None):
         """Ejecuta la sincronización utilizando QProcess."""
         from PyQt6.QtCore import QProcess
         
+        # Actualizar cola
+        if source_id:
+            if not self._pending_full_sync:
+                self._pending_source_ids.add(source_id)
+                if len(self._pending_source_ids) > 1:
+                    self._pending_full_sync = True
+                    self._pending_source_ids.clear()
+        else:
+            self._pending_full_sync = True
+            self._pending_source_ids.clear()
+
         if (hasattr(self, '_sync_process') and self._sync_process.state() != QProcess.ProcessState.NotRunning) or getattr(self, '_is_polling_lock', False):
             self._sync_required_after_unlock = True
             self._status_sync.setText("🔄 Sincronización encolada...")
@@ -234,7 +259,7 @@ class MainWindow(QMainWindow):
                     self._is_polling_lock = False
                     if self._sync_required_after_unlock:
                         self._sync_required_after_unlock = False
-                        self._force_sync()
+                        self._trigger_queued_sync()
                     else:
                         self._sync_btn.setEnabled(True)
                         self._sync_btn.setText("🔄 Sincronizar")
@@ -253,26 +278,28 @@ class MainWindow(QMainWindow):
             self._lock_check_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py"), "--check-lock"])
 
         def on_finished(exit_code, exit_status):
-            if hasattr(self, '_sync_timeout_timer'):
-                self._sync_timeout_timer.stop()
-            
             if exit_code == 3:
                 self._status_sync.setText("🔄 Sincronización ya en curso (esperando)...")
+                self._sync_required_after_unlock = True
                 self._is_polling_lock = True
                 QTimer.singleShot(3000, _check_lock)
-            elif exit_code == 0:
-                if self._sync_required_after_unlock:
-                    self._sync_required_after_unlock = False
-                    self._force_sync()
+            else:
+                if hasattr(self, '_sync_timeout_timer'):
+                    self._sync_timeout_timer.stop()
+
+                if exit_code == 0:
+                    if self._sync_required_after_unlock:
+                        self._sync_required_after_unlock = False
+                        self._trigger_queued_sync()
+                    else:
+                        self._sync_btn.setEnabled(True)
+                        self._sync_btn.setText("🔄 Sincronizar")
+                        self._load_data()
                 else:
                     self._sync_btn.setEnabled(True)
                     self._sync_btn.setText("🔄 Sincronizar")
+                    self._status_sync.setText("⚠ Error en sync")
                     self._load_data()
-            else:
-                self._sync_btn.setEnabled(True)
-                self._sync_btn.setText("🔄 Sincronizar")
-                QMessageBox.warning(self, "Error", f"Error en sincronización (código {exit_code})")
-                self._load_data()
                 
         self._sync_process.finished.connect(on_finished)
         
@@ -281,7 +308,7 @@ class MainWindow(QMainWindow):
                 self._sync_timeout_timer.stop()
             self._sync_btn.setEnabled(True)
             self._sync_btn.setText("🔄 Sincronizar")
-            QMessageBox.warning(self, "Error", f"No se pudo iniciar la sincronización: {error}")
+            self._status_sync.setText("⚠ Fallo inicio sync")
             self._load_data()
             
         self._sync_process.errorOccurred.connect(on_error)
@@ -301,8 +328,20 @@ class MainWindow(QMainWindow):
         self._sync_btn.setText("🔄 Sincronizando...")
         self._status_sync.setText("🔄 Sincronizando...")
         
-        self._sync_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py")])
+        self._trigger_queued_sync(initial=True)
 
+    def _trigger_queued_sync(self, initial=False):
+        project_dir = Path(__file__).resolve().parent.parent
+        args = [str(project_dir / "backend" / "fechas_sync.py")]
+        
+        if not self._pending_full_sync and self._pending_source_ids:
+            source = list(self._pending_source_ids)[0]
+            args.extend(["--source", source])
+            self._pending_source_ids.clear()
+        else:
+            self._pending_full_sync = False
+            
+        self._sync_process.start("python3", args)
 
     def _on_source_changed(self):
         """Recarga datos cuando se modifica una fuente."""

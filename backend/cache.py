@@ -292,6 +292,37 @@ def update_manual_event(event_id: str, updated_event: AcademicEvent) -> bool:
     raise ValueError(f"El evento manual '{event_id}' ya no existe")
 
 
+def delete_manual_event(event_id: str) -> bool:
+    """
+    Elimina un evento manual por su ID y limpia sus estados asociados.
+    """
+    events = read_manual_events()
+    initial_count = len(events)
+    events = [e for e in events if e.id != event_id]
+    if len(events) == initial_count:
+        raise ValueError(f"El evento manual '{event_id}' no existe")
+        
+    write_manual_events(events)
+    
+    # Limpiar estados asociados
+    completed = read_completed_events()
+    if event_id in completed:
+        completed.discard(event_id)
+        _atomic_write_json(COMPLETED_EVENTS_FILE, list(completed))
+        
+    seen = read_seen_events()
+    if event_id in seen:
+        seen.discard(event_id)
+        _atomic_write_json(SEEN_EVENTS_FILE, list(seen))
+        
+    known = read_known_events()
+    if event_id in known:
+        del known[event_id]
+        write_known_events(known)
+        
+    return True
+
+
 # ─── Materias (subjects.json) ─────────────────────────────────────
 
 def read_subjects() -> list[SubjectSyllabus]:

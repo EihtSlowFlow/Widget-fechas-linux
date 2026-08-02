@@ -78,7 +78,7 @@ Item {
             spacing: 2
             boundsBehavior: Flickable.StopAtBounds
 
-            model: root.eventsModel
+            model: root.visibleEventsModel
 
             header: ColumnLayout {
                 width: eventList.width
@@ -189,7 +189,7 @@ Item {
                     Kirigami.Theme.backgroundColor.r,
                     Kirigami.Theme.backgroundColor.g,
                     Kirigami.Theme.backgroundColor.b,
-                    mouseArea.containsMouse ? 0.8 : 0.4
+                    hoverHandler.hovered ? 0.8 : 0.4
                 )
 
                 // Urgency left border
@@ -274,7 +274,7 @@ Item {
 
                     // "Nuevo" badge
                     Rectangle {
-                        visible: modelData.is_new === true
+                            visible: modelData.is_new === true && !root.dismissedBadges[modelData.id]
                         Layout.alignment: Qt.AlignVCenter
                         Layout.preferredWidth: newLbl.implicitWidth + 8
                         Layout.preferredHeight: newLbl.implicitHeight + 4
@@ -290,10 +290,26 @@ Item {
                     }
                 }
 
-                MouseArea {
-                    id: mouseArea
-                    anchors.fill: parent
-                    hoverEnabled: true
+                    HoverHandler {
+                        id: hoverHandler
+                        enabled: modelData.is_new === true && !root.dismissedBadges[modelData.id]
+                        onHoveredChanged: {
+                            if (hovered) {
+                                hoverTimer.start()
+                            } else {
+                                hoverTimer.stop()
+                            }
+                        }
+                    }
+
+                    Timer {
+                        id: hoverTimer
+                        interval: 600
+                        onTriggered: {
+                            modelData.is_new = false
+                            root.markEventSeen(modelData.id)
+                        }
+                    }
                 }
             }
 

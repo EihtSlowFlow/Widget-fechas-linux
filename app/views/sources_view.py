@@ -21,6 +21,7 @@ class SourcesView(QWidget):
     """Vista para gestionar fuentes de datos."""
 
     source_changed = pyqtSignal()
+    sync_requested = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -146,6 +147,11 @@ class SourcesView(QWidget):
         if row < 0:
             return
         s = self._sources[row]
+        
+        if s.id == "manual":
+            QMessageBox.warning(self, "Acción no permitida", "La fuente de Eventos Manuales no puede eliminarse, solo deshabilitarse.")
+            return
+
         reply = QMessageBox.question(
             self, "Eliminar fuente",
             f"¿Eliminar la fuente '{s.name}'?",
@@ -170,14 +176,12 @@ class SourcesView(QWidget):
 
     def _sync_source(self):
         """Lanza la sincronización del backend."""
-        import subprocess
-        project_dir = Path(__file__).resolve().parent.parent.parent
-        subprocess.Popen(
-            ["python3", str(project_dir / "backend" / "fechas_sync.py")],
-            cwd=str(project_dir),
-        )
+        row = self._list.currentRow()
+        if row < 0:
+            return
+        s = self._sources[row]
+        self.sync_requested.emit(s.id)
         QMessageBox.information(
             self, "Sincronización",
-            "Sincronización iniciada en segundo plano.\n"
-            "Los eventos se actualizarán en unos segundos.",
+            f"Sincronización de '{s.name}' encolada.",
         )
