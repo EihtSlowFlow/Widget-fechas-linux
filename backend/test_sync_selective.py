@@ -129,6 +129,14 @@ class TestSelectiveSync(unittest.TestCase):
             sync(dry_run=True, source_id="unrn")
         self.assertEqual(cm.exception.code, 1)
 
+    def test_selective_sync_nonexistent_source(self):
+        self._setup_base_state()
+        
+        # Should exit entirely
+        with self.assertRaises(SystemExit) as cm:
+            sync(dry_run=True, source_id="invalid_source_123")
+        self.assertEqual(cm.exception.code, 1)
+
     def test_selective_sync_manual_source(self):
         s1, s2 = self._setup_base_state()
         s_manual = DataSource(id="manual", name="Manual", type="manual", enabled=True)

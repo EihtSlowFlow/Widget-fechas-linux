@@ -258,7 +258,9 @@ class MainWindow(QMainWindow):
                     if hasattr(self, '_sync_timeout_timer'):
                         self._sync_timeout_timer.stop()
                     self._is_polling_lock = False
-                    if self._sync_required_after_unlock:
+                    
+                    has_pending = self._pending_full_sync or bool(self._pending_source_ids)
+                    if self._sync_required_after_unlock or has_pending:
                         self._sync_required_after_unlock = False
                         self._trigger_queued_sync()
                     else:
@@ -287,21 +289,22 @@ class MainWindow(QMainWindow):
                 self._is_polling_lock = True
                 QTimer.singleShot(3000, _check_lock)
             else:
+                if hasattr(self, '_sync_timeout_timer'):
+                    self._sync_timeout_timer.stop()
                 self._active_sync_source_id = None
                 
-                if exit_code == 0:
-                    if self._sync_required_after_unlock:
-                        self._sync_required_after_unlock = False
-                        self._trigger_queued_sync()
-                    else:
-                        self._sync_btn.setEnabled(True)
-                        self._sync_btn.setText("🔄 Sincronizar")
-                        self._load_data()
+                has_pending = self._pending_full_sync or bool(self._pending_source_ids)
+                if self._sync_required_after_unlock or has_pending:
+                    self._sync_required_after_unlock = False
+                    self._trigger_queued_sync()
                 else:
                     self._sync_btn.setEnabled(True)
                     self._sync_btn.setText("🔄 Sincronizar")
-                    self._status_sync.setText("⚠ Error en sync")
-                    self._load_data()
+                    if exit_code == 0:
+                        self._load_data()
+                    else:
+                        self._status_sync.setText("⚠ Error en sync")
+                        self._load_data()
                 
         self._sync_process.finished.connect(on_finished)
         
@@ -348,6 +351,9 @@ class MainWindow(QMainWindow):
         else:
             self._pending_full_sync = False
             self._active_sync_source_id = None
+            
+        if not initial and hasattr(self, '_sync_timeout_timer'):
+            self._sync_timeout_timer.start(120000)
             
         self._sync_process.start("python3", args)
 
