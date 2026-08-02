@@ -20,6 +20,10 @@ PlasmoidItem {
     property int eventCount: 0
     property bool isSyncing: false
     property bool pollingExistingSync: false
+    property var dismissedBadges: ({}) // Collection to avoid executing mark-seen twice
+
+    readonly property int maxVisibleEvents: Math.max(1, plasmoid.configuration.maxVisibleEvents || 20)
+    readonly property var visibleEventsModel: eventsModel.slice(0, maxVisibleEvents)
 
     // ─── Paths (resolved dynamically at startup) ─────────────
     property string userHome: ""
@@ -72,6 +76,29 @@ PlasmoidItem {
     function openMainApp() {
         if (installDir) {
             appLauncher.connectSource("python3 " + installDir + "/app/main.py &");
+        }
+    }
+
+    // ─── Mark event as seen ──────────────────────────────────
+    Plasma5Support.DataSource {
+        id: markSeenLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            disconnectSource(sourceName);
+        }
+    }
+
+    function markEventSeen(eventId) {
+        if (!eventId || typeof eventId !== "string" || !eventId.match(/^[a-zA-Z0-9_-]+$/)) return;
+        if (dismissedBadges[eventId]) return;
+        
+        var updated = Object.assign({}, dismissedBadges);
+        updated[eventId] = true;
+        dismissedBadges = updated;
+        
+        if (installDir) {
+            markSeenLauncher.connectSource("python3 " + installDir + "/backend/event_actions.py mark-seen " + eventId);
         }
     }
 
@@ -163,9 +190,9 @@ PlasmoidItem {
         }
     }
 
-    // ─── Refresh timer (reread cache every 60s) ──────────────
+    // ─── Refresh timer (reread cache every X secs) ───────────
     Timer {
-        interval: 60000
+        interval: Math.max(10, plasmoid.configuration.refreshIntervalSec || 60) * 1000
         running: true
         repeat: true
         onTriggered: reloadCache()
@@ -217,9 +244,11 @@ PlasmoidItem {
 
     toolTipMainText: "Fechas Académicas"
     toolTipSubText: {
-        if (eventCount === 0) return "Sin eventos próximos";
-        var next = eventsModel[0];
-        if (!next) return "";
+        var pending = eventsModel.filter(function(event) {
+            return event.is_completed !== true;
+        });
+        if (pending.length === 0) return "Sin eventos próximos";
+        var next = pending[0];
         return next.title + " en " + next.days_remaining + " días";
     }
 }

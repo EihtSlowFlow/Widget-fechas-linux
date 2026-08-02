@@ -193,8 +193,19 @@ class EventCard(QFrame):
         info_col.addWidget(title_label)
 
         source_label = QLabel(e.get("source_name", ""))
-        source_label.setStyleSheet(f"color: {DARK_PALETTE['text_secondary']}; font-size: 11px; background: transparent;")
+        source_label.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-size: 11px;")
         info_col.addWidget(source_label)
+
+        # Description
+        desc = e.get("description", "")
+        if desc:
+            desc = desc.replace("\n", " ").strip()
+            if len(desc) > 120:
+                desc = desc[:117] + "..."
+            desc_label = QLabel(desc)
+            desc_label.setWordWrap(True)
+            desc_label.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-size: 11px;")
+            info_col.addWidget(desc_label)
 
         # ─── Date range display ──────────────────────────
         date_info = self._format_date_range()

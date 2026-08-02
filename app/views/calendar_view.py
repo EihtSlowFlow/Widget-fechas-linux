@@ -14,6 +14,22 @@ from app.widgets.event_card import EventCard
 from datetime import datetime
 from PyQt6.QtCore import pyqtSignal
 
+def highest_incomplete_urgency(events: list[dict]) -> str | None:
+    """Calcula la urgencia máxima entre los eventos no completados."""
+    levels = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
+    max_level = 0
+    max_urg = None
+    
+    for e in events:
+        if not e.get("is_completed"):
+            urg = e.get("urgency", "green")
+            lvl = levels.get(urg, 1)
+            if lvl > max_level:
+                max_level = lvl
+                max_urg = urg
+                
+    return max_urg
+
 class CalendarView(QWidget):
     """Vista de calendario con eventos resaltados por urgencia."""
 
@@ -108,17 +124,26 @@ class CalendarView(QWidget):
                     self._events_by_date[date_key] = []
                 self._events_by_date[date_key].append(e)
 
-                # Highlight the calendar day with urgency color
-                urgency = e.get("urgency", "green")
+                # No destacamos aquí, sino luego agrupando por día.
+            except (ValueError, TypeError):
+                continue
+                
+        for date_key, day_events in self._events_by_date.items():
+            dt = datetime.fromisoformat(day_events[0].get("due_date", ""))
+            qdate = QDate(dt.year, dt.month, dt.day)
+
+            urgency = highest_incomplete_urgency(day_events)
+            if urgency:
                 color = QColor(get_urgency_style(urgency))
                 fmt = QTextCharFormat()
                 fmt.setBackground(QColor(color.red(), color.green(), color.blue(), 80))
                 fmt.setForeground(QColor("white"))
                 fmt.setFontWeight(QFont.Weight.Bold)
                 self._calendar.setDateTextFormat(qdate, fmt)
-
-            except (ValueError, TypeError):
-                continue
+            else:
+                fmt = QTextCharFormat()
+                fmt.setBackground(QColor(128, 128, 128, 40))
+                self._calendar.setDateTextFormat(qdate, fmt)
 
         # Show today's events by default
         self._on_date_clicked(self._calendar.selectedDate())
@@ -147,4 +172,16 @@ class CalendarView(QWidget):
             for i, e in enumerate(day_events):
                 card = EventCard(e)
                 card.edit_requested.connect(self.event_edit_requested.emit)
+                card.completion_toggled.connect(self._on_completion_toggled)
                 self._detail_layout.insertWidget(i, card)
+
+    def _on_completion_toggled(self, event_id: str, is_completed: bool):
+        for e in self._events:
+            if e.get("id") == event_id:
+                e["is_completed"] = is_completed
+                break
+        
+        # Guardamos el día actual seleccionado
+        selected = self._calendar.selectedDate()
+        self.set_events(self._events)
+        self._calendar.setSelectedDate(selected)
