@@ -14,12 +14,16 @@ class TestCacheCompleted(unittest.TestCase):
         # Files in the temp dir
         self.cache_file = Path(self.test_dir.name) / "cache.json"
         self.completed_file = Path(self.test_dir.name) / "completed_events.json"
+        self.lock_file = Path(self.test_dir.name) / "cache.lock"
         
         self.patcher_cache_file = patch('backend.cache.CACHE_FILE', self.cache_file)
         self.patcher_cache_file.start()
         
         self.patcher_completed_file = patch('backend.cache.COMPLETED_EVENTS_FILE', self.completed_file)
         self.patcher_completed_file.start()
+
+        self.patcher_lock_file = patch('backend.cache.CACHE_LOCK_FILE', self.lock_file)
+        self.patcher_lock_file.start()
 
     def tearDown(self):
         patch.stopall()

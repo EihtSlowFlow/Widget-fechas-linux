@@ -17,6 +17,7 @@ CONFIG_DIR = HOME / ".config" / "fechas-academicas"
 
 # Archivos principales
 CACHE_FILE = DATA_DIR / "cache.json"
+CACHE_LOCK_FILE = DATA_DIR / "cache.lock"
 KNOWN_EVENTS_FILE = DATA_DIR / "known_events.json"
 SEEN_EVENTS_FILE = DATA_DIR / "seen_events.json"
 COMPLETED_EVENTS_FILE = DATA_DIR / "completed_events.json"
