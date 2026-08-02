@@ -83,7 +83,13 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
 
-            model: root.eventsModel
+            model: root.visibleEventsModel
+
+            onModelChanged: {
+                if (count > 0 && currentIndex >= count) {
+                    currentIndex = Math.max(0, count - 1);
+                }
+            }
 
             delegate: Item {
                 width: carouselView.width
@@ -229,11 +235,32 @@ Item {
 
                             // Subtle pulse animation
                             SequentialAnimation on opacity {
-                                running: modelData.is_new === true
+                                running: modelData.is_new === true && !root.dismissedBadges[modelData.id]
                                 loops: 3
                                 NumberAnimation { from: 1.0; to: 0.6; duration: 800; easing.type: Easing.InOutQuad }
                                 NumberAnimation { from: 0.6; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
                             }
+                        }
+                    }
+
+                    HoverHandler {
+                        id: hoverHandler
+                        enabled: modelData.is_new === true && !root.dismissedBadges[modelData.id]
+                        onHoveredChanged: {
+                            if (hovered) {
+                                hoverTimer.start()
+                            } else {
+                                hoverTimer.stop()
+                            }
+                        }
+                    }
+
+                    Timer {
+                        id: hoverTimer
+                        interval: 600
+                        onTriggered: {
+                            modelData.is_new = false
+                            root.markEventSeen(modelData.id)
                         }
                     }
                 }
@@ -252,7 +279,7 @@ Item {
                 spacing: 4
 
                 Repeater {
-                    model: Math.min(root.eventCount, 10)
+                    model: Math.min(root.visibleEventsModel ? root.visibleEventsModel.length : 0, 10)
                     Rectangle {
                         width: 6
                         height: 6
@@ -274,20 +301,20 @@ Item {
 
         // ─── Auto-scroll timer ───────────────────────────────
         Timer {
-            interval: 5000
-            running: root.eventCount > 1 && !carouselView.moving
+            interval: Math.max(2, plasmoid.configuration.autoScrollIntervalSec || 5) * 1000
+            running: root.visibleEventsModel && root.visibleEventsModel.length > 1 && !carouselView.moving
             repeat: true
             onTriggered: {
-                var nextIdx = (carouselView.currentIndex + 1) % root.eventCount;
-                carouselView.positionViewAtIndex(nextIdx, ListView.SnapPosition);
+                if (root.visibleEventsModel.length > 0) {
+                    var nextIdx = (carouselView.currentIndex + 1) % root.visibleEventsModel.length;
+                    carouselView.positionViewAtIndex(nextIdx, ListView.SnapPosition);
+                }
             }
         }
     }
 
     // ─── Click to expand ─────────────────────────────────────
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
-        onClicked: root.expanded = !root.expanded
+    TapHandler {
+        onTapped: root.expanded = !root.expanded
     }
 }

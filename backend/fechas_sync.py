@@ -132,22 +132,9 @@ def process_subjects(today: date) -> list[CurrentSubjectWeek]:
     return current_subjects
 
 
-def sync(dry_run: bool = False) -> CacheData:
+def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     """
-    Ejecuta el ciclo completo de sincronización.
-
-    1. Lee/inicializa fuentes
-    2. Descarga eventos de cada fuente
-    3. Agrega eventos manuales
-    4. Calcula urgencia
-    5. Detecta novedades
-    6. Escribe cache.json
-
-    Args:
-        dry_run: Si True, no escribe al disco
-
-    Returns:
-        CacheData con todos los eventos procesados
+    Ejecuta el ciclo completo de sincronización o sincronización selectiva.
     """
     ensure_dirs()
     today = date.today()
@@ -160,13 +147,41 @@ def sync(dry_run: bool = False) -> CacheData:
     if not sources:
         sources = read_sources()
 
+    target_source = None
+    if source_id:
+        target_source = next((s for s in sources if s.id == source_id), None)
+        if not target_source:
+            logger.error("La fuente solicitada '%s' no existe.", source_id)
+            from backend.cache import read_cache
+            return read_cache()
+        if not target_source.enabled:
+            logger.warning("La fuente '%s' está deshabilitada, se ignorará.", source_id)
+            from backend.cache import read_cache
+            return read_cache()
+
+    previous_cache = None
     all_events: list[AcademicEvent] = []
+    
+    if source_id:
+        from backend.cache import read_cache
+        try:
+            previous_cache = read_cache()
+            cached_events = [AcademicEvent.from_dict(e) for e in previous_cache.events]
+            enabled_source_ids = {s.id for s in sources if s.enabled}
+            # Filtrar fuentes deshabilitadas, y separar los de la fuente objetivo
+            all_events = [e for e in cached_events if e.source_id in enabled_source_ids and e.source_id != source_id]
+        except Exception as e:
+            logger.warning("Error leyendo cache anterior para sync selectiva: %s", e)
+            all_events = []
+
     sync_errors: list[str] = []
 
     # 2. Descargar eventos de cada fuente
-    for source in sources:
+    sources_to_sync = [target_source] if source_id else sources
+    
+    for source in sources_to_sync:
         if source.type == "manual":
-            continue  # Se procesan después
+            continue
 
         if not source.enabled:
             logger.info("Fuente deshabilitada, omitida: %s", source.name)
@@ -176,27 +191,38 @@ def sync(dry_run: bool = False) -> CacheData:
 
         events, error = _fetch_events_from_source(source)
 
-        # Actualizar estado de la fuente
         source.last_sync = now_iso
         source.sync_error = error
-        source.event_count = len(events)
 
         if error:
             sync_errors.append(f"{source.name}: {error}")
             logger.error("  ✗ Error: %s", error)
+            if source_id and previous_cache:
+                prev_source_events = [AcademicEvent.from_dict(e) for e in previous_cache.events if e.get("source_id") == source_id]
+                logger.info("  Manteniendo %d eventos anteriores de la fuente %s debido a error.", len(prev_source_events), source_id)
+                all_events.extend(prev_source_events)
+                source.event_count = len(prev_source_events)
+            else:
+                source.event_count = 0
         else:
             logger.info("  ✓ %d eventos obtenidos", len(events))
-
-        all_events.extend(events)
+            all_events.extend(events)
+            source.event_count = len(events)
 
     # 3. Agregar eventos manuales
-    manual_events = read_manual_events()
-    for me in manual_events:
-        me.source_id = "manual"
-        me.source_name = "Eventos Manuales"
-        me.is_manual = True
-    all_events.extend(manual_events)
-    logger.info("─── Eventos manuales: %d ───", len(manual_events))
+    if not source_id or source_id == "manual":
+        manual_source = next((s for s in sources if s.id == "manual" and s.enabled), None)
+        if manual_source:
+            manual_events = read_manual_events()
+            for me in manual_events:
+                me.source_id = "manual"
+                me.source_name = "Eventos Manuales"
+                me.is_manual = True
+            all_events.extend(manual_events)
+            logger.info("─── Eventos manuales: %d ───", len(manual_events))
+            manual_source.last_sync = now_iso
+            manual_source.sync_error = None
+            manual_source.event_count = len(manual_events)
 
     # 4. Calcular urgencia para todos
     for event in all_events:
@@ -226,13 +252,16 @@ def sync(dry_run: bool = False) -> CacheData:
     current_subjects = process_subjects(today)
     
     # 10. Construir cache
-    global_status = "ok" if not sync_errors else "partial"
-    global_error = "; ".join(sync_errors) if sync_errors else None
+    if source_id and previous_cache:
+        global_status = "partial" if sync_errors else previous_cache.sync_status
+        global_error = "; ".join(sync_errors) if sync_errors else previous_cache.sync_error
+    else:
+        global_status = "ok" if not sync_errors else "partial"
+        global_error = "; ".join(sync_errors) if sync_errors else None
 
     event_dicts = [e.to_dict() for e in unique_events]
     subject_dicts = [cs.to_dict() for cs in current_subjects]
 
-    # 10. Aplicar estado de completado (entregados por el usuario)
     from backend.cache import apply_completed_status
     event_dicts = apply_completed_status(event_dicts)
 
@@ -290,6 +319,11 @@ def main():
         help="Mostrar logging detallado",
     )
     parser.add_argument(
+        "--source",
+        type=str,
+        help="ID de la fuente para sincronizar selectivamente",
+    )
+    parser.add_argument(
         "--check-lock",
         action="store_true",
         help="Sólo comprueba si hay una sincronización en curso. Retorna 3 si está bloqueado, 0 si está libre.",
@@ -322,7 +356,7 @@ def main():
             sys.exit(0)
 
         try:
-            cache = sync(dry_run=args.dry_run)
+            cache = sync(dry_run=args.dry_run, source_id=args.source)
             print("SYNC_SUCCESS")
             sys.exit(0)
         except Exception as e:
