@@ -251,7 +251,9 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     # 9. Procesar materias
     current_subjects = process_subjects(today)
     
-    # 10. Construir cache
+    # 10. Construir cache y escribir bajo lock
+    from backend.cache import apply_completed_status, cache_lock
+    
     current_errors = [
         f"{s.name}: {s.sync_error}"
         for s in sources
@@ -259,30 +261,35 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     ]
     global_status = "partial" if current_errors else "ok"
     global_error = "; ".join(current_errors) if current_errors else None
-
+    
     event_dicts = [e.to_dict() for e in unique_events]
     subject_dicts = [cs.to_dict() for cs in current_subjects]
-
-    from backend.cache import apply_completed_status
-    event_dicts = apply_completed_status(event_dicts)
-
-    cache = CacheData(
-        last_sync=now_iso,
-        sync_status=global_status,
-        sync_error=global_error,
-        events=event_dicts,
-        current_subjects=subject_dicts,
-    )
-
-    # 11. Escribir
+    
     if not dry_run:
-        write_cache(cache)
+        with cache_lock():
+            event_dicts = apply_completed_status(event_dicts)
+            cache = CacheData(
+                last_sync=now_iso,
+                sync_status=global_status,
+                sync_error=global_error,
+                events=event_dicts,
+                current_subjects=subject_dicts,
+            )
+            write_cache(cache)
         write_sources(sources)
         logger.info(
             "═══ Sincronización completada: %d eventos, estado: %s ═══",
             len(unique_events), global_status,
         )
     else:
+        event_dicts = apply_completed_status(event_dicts)
+        cache = CacheData(
+            last_sync=now_iso,
+            sync_status=global_status,
+            sync_error=global_error,
+            events=event_dicts,
+            current_subjects=subject_dicts,
+        )
         logger.info(
             "═══ DRY RUN: %d eventos procesados (no se escribió al disco) ═══",
             len(unique_events),

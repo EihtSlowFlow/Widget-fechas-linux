@@ -10,16 +10,21 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+import fcntl
+import time
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
 from backend.config import (
+    DATA_DIR,
+    SOURCES_FILE,
     CACHE_FILE,
+    CACHE_LOCK_FILE,
     KNOWN_EVENTS_FILE,
     SEEN_EVENTS_FILE,
     COMPLETED_EVENTS_FILE,
-    SOURCES_FILE,
     MANUAL_EVENTS_FILE,
     SUBJECTS_FILE,
     ensure_dirs,
@@ -27,6 +32,28 @@ from backend.config import (
 from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus
 
 logger = logging.getLogger("fechas.cache")
+
+
+@contextmanager
+def cache_lock(timeout: int = 5):
+    """Context manager para asegurar escritura/lectura segura del cache.json."""
+    ensure_dirs()
+    f = open(CACHE_LOCK_FILE, "w")
+    start = time.monotonic()
+    while True:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if time.monotonic() - start > timeout:
+                f.close()
+                raise TimeoutError("No se pudo obtener el lock del cache")
+            time.sleep(0.1)
+    try:
+        yield
+    finally:
+        fcntl.flock(f, fcntl.LOCK_UN)
+        f.close()
 
 
 def _atomic_write_json(path: Path, data: dict) -> None:
@@ -170,16 +197,36 @@ def toggle_completed(event_id: str) -> bool:
     """
     Alterna el estado de completado de un evento.
     Retorna True si quedó completado, False si se desmarcó.
+    Ambas actualizaciones (lista de completados y cache.json) 
+    se protegen bajo el mismo lock para evitar condiciones de carrera.
     """
     ensure_dirs()
-    completed = read_completed_events()
-    if event_id in completed:
-        completed.discard(event_id)
-        result = False
-    else:
-        completed.add(event_id)
-        result = True
-    _atomic_write_json(COMPLETED_EVENTS_FILE, list(completed))
+    
+    with cache_lock():
+        completed = read_completed_events()
+        if event_id in completed:
+            completed.discard(event_id)
+            result = False
+        else:
+            completed.add(event_id)
+            result = True
+        
+        _atomic_write_json(COMPLETED_EVENTS_FILE, list(completed))
+
+        # Actualizar cache.json inmediatamente para que el widget y la UI se sincronicen
+        try:
+            cache_data = read_cache()
+            if cache_data and cache_data.events:
+                updated = False
+                for e in cache_data.events:
+                    if e.get("id") == event_id:
+                        e["is_completed"] = result
+                        updated = True
+                if updated:
+                    write_cache(cache_data)
+        except Exception as e:
+            logger.warning("No se pudo actualizar cache.json al cambiar completado: %s", e)
+
     return result
 
 
