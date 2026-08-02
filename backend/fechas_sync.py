@@ -152,12 +152,12 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
         target_source = next((s for s in sources if s.id == source_id), None)
         if not target_source:
             logger.error("La fuente solicitada '%s' no existe.", source_id)
-            from backend.cache import read_cache
-            return read_cache()
+            import sys
+            sys.exit(1)
         if not target_source.enabled:
             logger.warning("La fuente '%s' está deshabilitada, se ignorará.", source_id)
-            from backend.cache import read_cache
-            return read_cache()
+            import sys
+            sys.exit(1)
 
     previous_cache = None
     all_events: list[AcademicEvent] = []
@@ -252,12 +252,13 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     current_subjects = process_subjects(today)
     
     # 10. Construir cache
-    if source_id and previous_cache:
-        global_status = "partial" if sync_errors else previous_cache.sync_status
-        global_error = "; ".join(sync_errors) if sync_errors else previous_cache.sync_error
-    else:
-        global_status = "ok" if not sync_errors else "partial"
-        global_error = "; ".join(sync_errors) if sync_errors else None
+    current_errors = [
+        f"{s.name}: {s.sync_error}"
+        for s in sources
+        if s.enabled and s.sync_error
+    ]
+    global_status = "partial" if current_errors else "ok"
+    global_error = "; ".join(current_errors) if current_errors else None
 
     event_dicts = [e.to_dict() for e in unique_events]
     subject_dicts = [cs.to_dict() for cs in current_subjects]

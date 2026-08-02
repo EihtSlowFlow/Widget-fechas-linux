@@ -217,7 +217,7 @@ Item {
 
                         // "Nuevo" badge
                         Rectangle {
-                            visible: modelData.is_new === true
+                            visible: modelData.is_new === true && !root.dismissedBadges[modelData.id]
                             Layout.alignment: Qt.AlignTop | Qt.AlignRight
                             Layout.preferredWidth: newLabel.implicitWidth + Kirigami.Units.smallSpacing * 2
                             Layout.preferredHeight: newLabel.implicitHeight + Kirigami.Units.smallSpacing

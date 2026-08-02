@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
         self._sync_required_after_unlock = False
         self._pending_full_sync = False
         self._pending_source_ids = set()
+        self._active_sync_source_id = None
         self._setup_ui()
         self._load_data()
         self._start_auto_refresh()
@@ -286,6 +287,8 @@ class MainWindow(QMainWindow):
                 self._is_polling_lock = True
                 QTimer.singleShot(3000, _check_lock)
             else:
+                self._active_sync_source_id = None
+                
                 if exit_code == 0:
                     if self._sync_required_after_unlock:
                         self._sync_required_after_unlock = False
@@ -305,6 +308,7 @@ class MainWindow(QMainWindow):
         def on_error(error):
             if hasattr(self, '_sync_timeout_timer'):
                 self._sync_timeout_timer.stop()
+            self._active_sync_source_id = None
             self._sync_btn.setEnabled(True)
             self._sync_btn.setText("🔄 Sincronizar")
             self._status_sync.setText("⚠ Fallo inicio sync")
@@ -333,12 +337,17 @@ class MainWindow(QMainWindow):
         project_dir = Path(__file__).resolve().parent.parent
         args = [str(project_dir / "backend" / "fechas_sync.py")]
         
-        if not self._pending_full_sync and self._pending_source_ids:
+        if self._active_sync_source_id:
+            # Reintentar la misma fuente que devolvió código 3
+            args.extend(["--source", self._active_sync_source_id])
+        elif not self._pending_full_sync and self._pending_source_ids:
             source = list(self._pending_source_ids)[0]
+            self._active_sync_source_id = source
             args.extend(["--source", source])
-            self._pending_source_ids.clear()
+            self._pending_source_ids.remove(source)
         else:
             self._pending_full_sync = False
+            self._active_sync_source_id = None
             
         self._sync_process.start("python3", args)
 

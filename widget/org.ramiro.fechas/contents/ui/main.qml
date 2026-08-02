@@ -93,7 +93,10 @@ PlasmoidItem {
         if (!eventId || typeof eventId !== "string" || !eventId.match(/^[a-zA-Z0-9_-]+$/)) return;
         if (dismissedBadges[eventId]) return;
         
-        dismissedBadges[eventId] = true;
+        var updated = Object.assign({}, dismissedBadges);
+        updated[eventId] = true;
+        dismissedBadges = updated;
+        
         if (installDir) {
             markSeenLauncher.connectSource("python3 " + installDir + "/backend/event_actions.py mark-seen " + eventId);
         }
