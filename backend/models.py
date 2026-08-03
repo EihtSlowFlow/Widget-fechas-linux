@@ -180,6 +180,56 @@ class SyllabusEntry:
 
 
 @dataclass
+class SyllabusUnit:
+    """Representa una unidad del programa de una materia."""
+    name: str
+    weeks: list[int] = field(default_factory=list)
+    contents: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SyllabusUnit":
+        name = str(data.get("name", "")).strip()
+        if not name:
+            raise ValueError("Nombre de unidad vacío")
+
+        # Validate weeks: must be a list, accept only int >= 1, reject booleans
+        raw_weeks = data.get("weeks", [])
+        if not isinstance(raw_weeks, list):
+            raw_weeks = []
+        weeks = []
+        for w in raw_weeks:
+            if isinstance(w, bool):  # bool is subclass of int in Python
+                continue
+            try:
+                val = int(w)
+                if val >= 1:
+                    weeks.append(val)
+            except (ValueError, TypeError):
+                continue
+        # Deduplicate preserving first occurrence, then sort
+        weeks = sorted(set(weeks))
+
+        # Validate contents: must be a list of strings, strip, remove empty, deduplicate preserving order
+        raw_contents = data.get("contents", [])
+        if not isinstance(raw_contents, list):
+            raw_contents = []
+        seen = set()
+        contents = []
+        for c in raw_contents:
+            if not isinstance(c, str):
+                continue
+            c = c.strip()
+            if c and c not in seen:
+                seen.add(c)
+                contents.append(c)
+
+        return cls(name=name, weeks=weeks, contents=contents)
+
+
+@dataclass
 class SubjectSyllabus:
     """Representa una materia con su temario y fecha de inicio."""
     name: str
@@ -188,11 +238,13 @@ class SubjectSyllabus:
     end_date: str = ""                  # Opcional ISO 8601
     syllabus: list[SyllabusEntry] = field(default_factory=list)
     class_schedule: list[ClassScheduleEntry] = field(default_factory=list)
+    units: list[SyllabusUnit] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d['syllabus'] = [entry.to_dict() for entry in self.syllabus]
         d['class_schedule'] = [entry.to_dict() for entry in self.class_schedule]
+        d['units'] = [unit.to_dict() for unit in self.units]
         return d
 
     @classmethod
@@ -236,6 +288,19 @@ class SubjectSyllabus:
                 logging.getLogger("fechas.models").warning(f"Error parseando ClassScheduleEntry: {ex}")
                 continue
 
+        units_data = data.get("units", [])
+        if not isinstance(units_data, list):
+            units_data = []
+
+        units = []
+        for u in units_data:
+            if not isinstance(u, dict):
+                continue
+            try:
+                units.append(SyllabusUnit.from_dict(u))
+            except (ValueError, TypeError):
+                continue
+
         # Mantener el ID original o generar uno si no existe
         subj_id = data.get("id")
         if not subj_id or not isinstance(subj_id, str):
@@ -253,7 +318,7 @@ class SubjectSyllabus:
             except ValueError:
                 end_date = ""
             
-        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, syllabus=syllabus, class_schedule=class_schedule)
+        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, syllabus=syllabus, class_schedule=class_schedule, units=units)
 
 
 
@@ -267,6 +332,7 @@ class CurrentSubjectWeek:
     week_start: str                     # ISO 8601 Date
     week_end: str                       # ISO 8601 Date
     topics: list[str]
+    units: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -105,8 +105,11 @@ class SubjectsView(QWidget):
         self._subjects = read_subjects()
         self._list.clear()
         for s in self._subjects:
-            topics_count = len(s.syllabus)
-            item = QListWidgetItem(f"📚 {s.name} ({topics_count} temas, inicio: {s.start_date})")
+            if hasattr(s, 'units') and s.units:
+                info = f"{len(s.units)} unidades"
+            else:
+                info = f"{len(s.syllabus)} temas"
+            item = QListWidgetItem(f"📚 {s.name} ({info}, inicio: {s.start_date})")
             self._list.addItem(item)
 
     def _on_selection_changed(self, row: int):
@@ -131,14 +134,27 @@ class SubjectsView(QWidget):
                 lines.append(f"• {day_name} {entry.start_time}-{entry.end_time}{loc}")
             self._detail_schedule.setText("Horarios:\n" + "\n".join(lines))
         
-        if not s.syllabus:
-            self._detail_syllabus.setText("Sin temario configurado.")
-        else:
+        if hasattr(s, 'units') and s.units:
+            lines = []
+            for i, unit in enumerate(s.units, 1):
+                weeks_str = ", ".join(str(w) for w in unit.weeks)
+                lines.append(f"Unidad {i} — {unit.name}")
+                lines.append(f"Semanas: {weeks_str}")
+                if unit.contents:
+                    for c in unit.contents:
+                        lines.append(f"  • {c}")
+                else:
+                    lines.append("  Sin contenidos configurados.")
+                lines.append("")  # blank line between units
+            self._detail_syllabus.setText("\n".join(lines).rstrip())
+        elif s.syllabus:
             lines = [f"• Semanas {entry.start_week}-{entry.end_week}: {entry.topic}" for entry in s.syllabus]
             # Mostrar solo los primeros 5 en la previsualización
             if len(lines) > 5:
                 lines = lines[:5] + ["... (más temas)"]
             self._detail_syllabus.setText("Temario:\n" + "\n".join(lines))
+        else:
+            self._detail_syllabus.setText("Sin temario configurado.")
 
     def _delete_subject(self):
         row = self._list.currentRow()

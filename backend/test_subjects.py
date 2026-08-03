@@ -2,7 +2,7 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
-from backend.models import SubjectSyllabus, SyllabusEntry
+from backend.models import SubjectSyllabus, SyllabusEntry, SyllabusUnit
 from backend.fechas_sync import process_subjects
 
 
@@ -170,6 +170,48 @@ class TestSubjectSyllabus(unittest.TestCase):
         serialized = subj.to_dict()
         self.assertEqual(serialized["class_schedule"][0]["start_time"], "08:00")
 
+    def test_subject_with_units(self):
+        data = {
+            "name": "Base de Datos",
+            "start_date": "2026-06-01",
+            "id": "bd1",
+            "units": [
+                {"name": "Unidad 1", "weeks": [1, 2, 3], "contents": ["Diseño", "Normalización"]},
+                {"name": "Unidad 2", "weeks": [4, 5], "contents": ["Índices"]}
+            ]
+        }
+        subj = SubjectSyllabus.from_dict(data)
+        self.assertEqual(len(subj.units), 2)
+        self.assertEqual(subj.units[0].name, "Unidad 1")
+        self.assertEqual(subj.units[1].weeks, [4, 5])
+
+        serialized = subj.to_dict()
+        self.assertEqual(len(serialized["units"]), 2)
+        self.assertEqual(serialized["units"][0]["contents"], ["Diseño", "Normalización"])
+
+    def test_subject_without_units_compat(self):
+        data = {
+            "name": "Vieja",
+            "start_date": "2026-06-01",
+            "id": "v1",
+            "syllabus": [{"start_week": 1, "end_week": 2, "topic": "Intro"}]
+        }
+        subj = SubjectSyllabus.from_dict(data)
+        self.assertEqual(subj.units, [])
+        self.assertEqual(len(subj.syllabus), 1)
+
+    def test_subject_with_units_and_syllabus(self):
+        data = {
+            "name": "Dual",
+            "start_date": "2026-06-01",
+            "id": "d1",
+            "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Legacy"}],
+            "units": [{"name": "U1", "weeks": [1], "contents": ["New"]}]
+        }
+        subj = SubjectSyllabus.from_dict(data)
+        self.assertEqual(len(subj.syllabus), 1)
+        self.assertEqual(len(subj.units), 1)
+
     def test_pipeline_integration(self):
         import json
         from backend.fechas_sync import sync
@@ -205,7 +247,8 @@ class TestSubjectSyllabus(unittest.TestCase):
                         "name": "Integration Subject",
                         "start_date": str(date.today()), # Starts today, so week 1
                         "id": "int1",
-                        "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Integración"}]
+                        "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Integración"}],
+                        "units": [{"name": "Unidad 1", "weeks": [1], "contents": ["Integración"]}]
                     }
                 ]
                 with open(config_dir / "subjects.json", 'w', encoding='utf-8') as f:
@@ -231,6 +274,9 @@ class TestSubjectSyllabus(unittest.TestCase):
                 self.assertEqual(cache_data["current_subjects"][0]["subject_id"], "int1")
                 self.assertEqual(cache_data["current_subjects"][0]["week_number"], 1)
                 self.assertEqual(cache_data["current_subjects"][0]["topics"], ["Integración"])
+                self.assertIn("units", cache_data["current_subjects"][0])
+                self.assertEqual(len(cache_data["current_subjects"][0]["units"]), 1)
+                self.assertEqual(cache_data["current_subjects"][0]["units"][0]["name"], "Unidad 1")
 
     def test_cachedata_legacy_format(self):
         from backend.models import CacheData
@@ -249,6 +295,76 @@ class TestSubjectSyllabus(unittest.TestCase):
         self.assertEqual(len(cache.current_subjects), 1)
         # Should gracefully default to empty list instead of failing
         self.assertEqual(cache.weekly_schedule, [])
+
+class TestSyllabusUnit(unittest.TestCase):
+
+    def test_basic_serialization(self):
+        data = {
+            "name": "1. Nociones avanzadas",
+            "weeks": [1, 2, 3, 4],
+            "contents": ["Diseño de DB", "Procedimientos almacenados"]
+        }
+        unit = SyllabusUnit.from_dict(data)
+        self.assertEqual(unit.name, "1. Nociones avanzadas")
+        self.assertEqual(unit.weeks, [1, 2, 3, 4])
+        self.assertEqual(unit.contents, ["Diseño de DB", "Procedimientos almacenados"])
+        d = unit.to_dict()
+        self.assertEqual(d["name"], "1. Nociones avanzadas")
+
+    def test_name_normalization(self):
+        unit = SyllabusUnit.from_dict({"name": "  Unidad 1  ", "weeks": [1]})
+        self.assertEqual(unit.name, "Unidad 1")
+
+    def test_empty_name_raises(self):
+        with self.assertRaises(ValueError):
+            SyllabusUnit.from_dict({"name": "", "weeks": [1]})
+        with self.assertRaises(ValueError):
+            SyllabusUnit.from_dict({"name": "   ", "weeks": [1]})
+
+    def test_weeks_deduplication_and_sorting(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [3, 1, 2, 1, 3]})
+        self.assertEqual(unit.weeks, [1, 2, 3])
+
+    def test_weeks_invalid_values_ignored(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1, "hola", -1, 0, 2]})
+        self.assertEqual(unit.weeks, [1, 2])
+
+    def test_weeks_boolean_rejected(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [True, False, 2]})
+        self.assertEqual(unit.weeks, [2])
+
+    def test_weeks_not_a_list(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": "123"})
+        self.assertEqual(unit.weeks, [])
+
+    def test_contents_normalization(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1], "contents": ["  Tema 1  ", "", "Tema 2", "  "]})
+        self.assertEqual(unit.contents, ["Tema 1", "Tema 2"])
+
+    def test_contents_deduplication(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1], "contents": ["A", "B", "A", "C", "B"]})
+        self.assertEqual(unit.contents, ["A", "B", "C"])
+
+    def test_contents_not_a_list(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1], "contents": "string"})
+        self.assertEqual(unit.contents, [])
+
+    def test_contents_non_string_ignored(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1], "contents": ["A", 123, None, "B"]})
+        self.assertEqual(unit.contents, ["A", "B"])
+
+    def test_unit_without_contents(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1]})
+        self.assertEqual(unit.contents, [])
+
+    def test_unit_empty_weeks_tolerated(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": []})
+        self.assertEqual(unit.weeks, [])
+
+    def test_unknown_fields_tolerated(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1], "foo": "bar", "extra": 42})
+        self.assertEqual(unit.name, "U")
+        self.assertEqual(unit.weeks, [1])
 
 if __name__ == "__main__":
     unittest.main()

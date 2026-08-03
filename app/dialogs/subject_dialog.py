@@ -87,8 +87,40 @@ class SubjectDialog(QDialog):
         sch_btn_layout.addStretch()
         layout.addLayout(sch_btn_layout)
 
-        # Syllabus Section
-        layout.addWidget(QLabel("Temario (Syllabus):"))
+        # Units Section
+        layout.addWidget(QLabel("Unidades del programa:"))
+
+        self._units_table = QTableWidget(0, 3)
+        self._units_table.setHorizontalHeaderLabels(["Unidad", "Semanas", "Contenidos"])
+        u_header = self._units_table.horizontalHeader()
+        u_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        u_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        u_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self._units_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._units_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        layout.addWidget(self._units_table)
+
+        unit_btn_layout = QHBoxLayout()
+        self._add_unit_btn = QPushButton("+ Agregar Unidad")
+        self._add_unit_btn.clicked.connect(self._add_unit)
+        unit_btn_layout.addWidget(self._add_unit_btn)
+
+        self._edit_unit_btn = QPushButton("Editar Seleccionada")
+        self._edit_unit_btn.setObjectName("secondaryButton")
+        self._edit_unit_btn.clicked.connect(self._edit_unit)
+        unit_btn_layout.addWidget(self._edit_unit_btn)
+
+        self._remove_unit_btn = QPushButton("- Eliminar Seleccionada")
+        self._remove_unit_btn.setObjectName("dangerButton")
+        self._remove_unit_btn.clicked.connect(self._remove_unit)
+        unit_btn_layout.addWidget(self._remove_unit_btn)
+
+        unit_btn_layout.addStretch()
+        layout.addLayout(unit_btn_layout)
+
+        # Legacy Syllabus Section
+        self._legacy_syllabus_label = QLabel("Temario anterior (legado):")
+        layout.addWidget(self._legacy_syllabus_label)
         
         self._table = QTableWidget(0, 3)
         self._table.setHorizontalHeaderLabels(["Semana Inicio", "Semana Fin", "Tema"])
@@ -168,6 +200,10 @@ class SubjectDialog(QDialog):
             
             self._schedule_table.setItem(row, 3, QTableWidgetItem(entry.get("location", "")))
 
+        units = self._subject_data.get("units", [])
+        for unit_data in units:
+            self._insert_unit_row(unit_data)
+
     def _add_topic(self):
         row = self._table.rowCount()
         self._table.insertRow(row)
@@ -205,6 +241,49 @@ class SubjectDialog(QDialog):
         row = self._schedule_table.currentRow()
         if row >= 0:
             self._schedule_table.removeRow(row)
+
+    def _add_unit(self):
+        from app.dialogs.syllabus_unit_dialog import SyllabusUnitDialog
+        dialog = SyllabusUnitDialog(self)
+        if dialog.exec():
+            unit_data = dialog.get_unit_data()
+            self._insert_unit_row(unit_data)
+
+    def _edit_unit(self):
+        row = self._units_table.currentRow()
+        if row < 0:
+            return
+        unit_data = self._get_unit_at_row(row)
+        from app.dialogs.syllabus_unit_dialog import SyllabusUnitDialog
+        dialog = SyllabusUnitDialog(self, unit_data=unit_data)
+        if dialog.exec():
+            new_data = dialog.get_unit_data()
+            self._update_unit_row(row, new_data)
+
+    def _remove_unit(self):
+        row = self._units_table.currentRow()
+        if row >= 0:
+            self._units_table.removeRow(row)
+
+    def _insert_unit_row(self, unit_data):
+        row = self._units_table.rowCount()
+        self._units_table.insertRow(row)
+        self._update_unit_row(row, unit_data)
+
+    def _update_unit_row(self, row, unit_data):
+        self._units_table.setItem(row, 0, QTableWidgetItem(unit_data.get("name", "")))
+        weeks_str = ", ".join(str(w) for w in unit_data.get("weeks", []))
+        self._units_table.setItem(row, 1, QTableWidgetItem(weeks_str))
+        contents_count = len(unit_data.get("contents", []))
+        self._units_table.setItem(row, 2, QTableWidgetItem(f"{contents_count} contenidos"))
+        # Store original data in the name item
+        self._units_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, unit_data)
+
+    def _get_unit_at_row(self, row):
+        item = self._units_table.item(row, 0)
+        if item:
+            return item.data(Qt.ItemDataRole.UserRole) or {}
+        return {}
 
     def _validate_and_accept(self):
         if not self._name_edit.text().strip():
@@ -330,12 +409,19 @@ class SubjectDialog(QDialog):
                 "location": location
             })
             
+        units = []
+        for row in range(self._units_table.rowCount()):
+            unit_data = self._get_unit_at_row(row)
+            if unit_data:
+                units.append(unit_data)
+
         data = {
             "name": self._name_edit.text().strip(),
             "start_date": self._start_date_edit.date().toString(Qt.DateFormat.ISODate),
             "end_date": self._end_date_edit.date().toString(Qt.DateFormat.ISODate) if self._has_end_date.isChecked() else "",
             "syllabus": syllabus,
-            "class_schedule": schedules
+            "class_schedule": schedules,
+            "units": units
         }
         
         if self._subject_data and "id" in self._subject_data:
