@@ -19,5 +19,9 @@ class TestSubjectDialog(unittest.TestCase):
         dlg1 = SubjectDialog(subject_data=data_new)
         self.assertEqual(dlg1._name_edit.text(), "Test")
 
+        output = dlg1.get_subject_data()
+        self.assertNotIn("syllabus", output)
+        self.assertEqual(len(output["units"]), 1)
+
 if __name__ == "__main__":
     unittest.main()

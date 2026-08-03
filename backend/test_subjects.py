@@ -188,6 +188,20 @@ class TestSubjectSyllabus(unittest.TestCase):
         self.assertEqual(len(serialized["units"]), 2)
         self.assertEqual(serialized["units"][0]["contents"], ["Diseño", "Normalización"])
 
+    def test_legacy_syllabus_is_ignored(self):
+        subject = SubjectSyllabus.from_dict({
+            "name": "Prueba",
+            "start_date": "2026-08-03",
+            "syllabus": [
+                {"start_week": 1, "end_week": 4, "topic": "Legado"}
+            ]
+        })
+
+        serialized = subject.to_dict()
+
+        self.assertFalse(hasattr(subject, "syllabus"))
+        self.assertNotIn("syllabus", serialized)
+
     def test_pipeline_integration(self):
         import json
         from backend.fechas_sync import sync
