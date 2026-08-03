@@ -223,16 +223,10 @@ Item {
                                 }
                             }
 
-                            // Legacy topics fallback
                             PlasmaComponents.Label {
                                 Layout.fillWidth: true
                                 visible: (!modelData.units || modelData.units.length === 0)
-                                text: {
-                                    if (modelData.topics && modelData.topics.length > 0) {
-                                        return modelData.topics.map(t => "• " + t).join("\n");
-                                    }
-                                    return "Sin temas asignados esta semana.";
-                                }
+                                text: "Sin contenidos asignados esta semana."
                                 font.pixelSize: Kirigami.Units.gridUnit * 0.65
                                 wrapMode: Text.WordWrap
                                 opacity: 0.8

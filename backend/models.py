@@ -156,30 +156,6 @@ class DataSource:
 
 
 @dataclass
-class SyllabusEntry:
-    """Representa una entrada en el temario de una materia."""
-    start_week: int
-    end_week: int
-    topic: str
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict) -> SyllabusEntry:
-        sw = int(data.get("start_week", 0))
-        ew = int(data.get("end_week", 0))
-        topic = str(data.get("topic", "")).strip()
-        
-        if sw < 1 or ew < sw:
-            raise ValueError(f"Semanas inválidas: start={sw}, end={ew}")
-        if not topic:
-            raise ValueError("Tema vacío")
-            
-        return cls(start_week=sw, end_week=ew, topic=topic)
-
-
-@dataclass
 class SyllabusUnit:
     """Representa una unidad del programa de una materia."""
     name: str
@@ -247,13 +223,11 @@ class SubjectSyllabus:
     start_date: str                     # ISO 8601: "2026-06-20"
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     end_date: str = ""                  # Opcional ISO 8601
-    syllabus: list[SyllabusEntry] = field(default_factory=list)
     class_schedule: list[ClassScheduleEntry] = field(default_factory=list)
     units: list[SyllabusUnit] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        d['syllabus'] = [entry.to_dict() for entry in self.syllabus]
         d['class_schedule'] = [entry.to_dict() for entry in self.class_schedule]
         d['units'] = [unit.to_dict() for unit in self.units]
         return d
@@ -269,20 +243,6 @@ class SubjectSyllabus:
         # Validar formato ISO 8601
         date.fromisoformat(start_date)
         
-        syllabus_data = data.get("syllabus", [])
-        if not isinstance(syllabus_data, list):
-            syllabus_data = []
-            
-        syllabus = []
-        for e in syllabus_data:
-            if not isinstance(e, dict):
-                continue
-            try:
-                syllabus.append(SyllabusEntry.from_dict(e))
-            except (ValueError, TypeError):
-                # Descartar solo la entrada corrupta
-                continue
-                
         schedule_data = data.get("class_schedule", [])
         if not isinstance(schedule_data, list):
             schedule_data = []
@@ -329,7 +289,7 @@ class SubjectSyllabus:
             except ValueError:
                 end_date = ""
             
-        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, syllabus=syllabus, class_schedule=class_schedule, units=units)
+        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, class_schedule=class_schedule, units=units)
 
 
 
