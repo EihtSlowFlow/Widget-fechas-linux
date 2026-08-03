@@ -60,7 +60,7 @@ Item {
             
             // ─── Agenda Semanal ───
             Repeater {
-                model: root.groupedSchedule
+                model: (root.scheduleModel.length > 0 || root.subjectsModel.length > 0) ? root.groupedSchedule : []
                 delegate: ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.smallSpacing
