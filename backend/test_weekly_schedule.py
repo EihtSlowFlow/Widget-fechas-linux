@@ -66,5 +66,31 @@ class TestWeeklySchedule(unittest.TestCase):
         self.assertEqual(schedule[2]["subject_id"], "a")
         self.assertEqual(schedule[2]["day_of_week"], 3)
 
+    def test_find_schedule_overlaps(self):
+        from backend.fechas_sync import find_schedule_overlaps
+        
+        entries = [
+            {"day_of_week": 1, "start_time": "08:00", "end_time": "10:00", "subject_name": "A", "subject_id": "a"},
+            {"day_of_week": 1, "start_time": "09:00", "end_time": "11:00", "subject_name": "B", "subject_id": "b"}, # Overlaps with A
+            {"day_of_week": 1, "start_time": "10:00", "end_time": "12:00", "subject_name": "C", "subject_id": "c"}, # Contiguous with A, overlaps with B
+            {"day_of_week": 1, "start_time": "13:00", "end_time": "15:00", "subject_name": "D", "subject_id": "d"},
+            {"day_of_week": 2, "start_time": "08:00", "end_time": "10:00", "subject_name": "E", "subject_id": "e"}, # Different day
+            {"day_of_week": 1, "start_time": "13:30", "end_time": "14:30", "subject_name": "F", "subject_id": "f"}  # Contained in D
+        ]
+        
+        overlaps = find_schedule_overlaps(entries)
+        
+        # A and B overlap
+        self.assertTrue(any(e1["subject_id"] == "a" and e2["subject_id"] == "b" for e1, e2 in overlaps))
+        # B and C overlap
+        self.assertTrue(any(e1["subject_id"] == "b" and e2["subject_id"] == "c" for e1, e2 in overlaps))
+        # A and C do NOT overlap (contiguous: 10:00 <= 10:00)
+        self.assertFalse(any((e1["subject_id"] == "a" and e2["subject_id"] == "c") or (e1["subject_id"] == "c" and e2["subject_id"] == "a") for e1, e2 in overlaps))
+        # D and F overlap (contained)
+        self.assertTrue(any(e1["subject_id"] == "d" and e2["subject_id"] == "f" for e1, e2 in overlaps))
+        
+        # E has no overlaps
+        self.assertFalse(any(e1["subject_id"] == "e" or e2["subject_id"] == "e" for e1, e2 in overlaps))
+
 if __name__ == "__main__":
     unittest.main()

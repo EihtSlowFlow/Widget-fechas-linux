@@ -128,6 +128,7 @@ class SubjectDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def _load_data(self):
         self._name_edit.setText(self._subject_data.get("name", ""))
         start_date_str = self._subject_data.get("start_date", "")
         if start_date_str:
@@ -227,6 +228,12 @@ class SubjectDialog(QDialog):
                 QMessageBox.warning(self, "Error", f"Fila temario {row+1}: El tema no puede estar vacío.")
                 return
 
+        if self._has_end_date.isChecked():
+            if self._end_date_edit.date() < self._start_date_edit.date():
+                QMessageBox.warning(self, "Error", "La fecha de fin no puede ser anterior a la de inicio.")
+                self._end_date_edit.setFocus()
+                return
+
         # Validate schedules
         for row in range(self._schedule_table.rowCount()):
             start = self._schedule_table.cellWidget(row, 1).time()
@@ -235,6 +242,58 @@ class SubjectDialog(QDialog):
             if start >= end:
                 QMessageBox.warning(self, "Error", f"Fila horario {row+1}: La hora de inicio debe ser menor a la hora de fin.")
                 return
+
+        # Check for overlaps
+        current_data = self.get_subject_data()
+        
+        try:
+            from backend.cache import read_subjects
+            from backend.fechas_sync import generate_weekly_schedule, find_schedule_overlaps
+            from backend.models import SubjectSyllabus
+            from datetime import date
+            
+            # Use current date as today for overlaps check
+            today = date.today()
+            subjects = read_subjects()
+            
+            # Remove current subject from list if editing, to replace with current_data
+            current_id = current_data.get("id")
+            if current_id:
+                subjects = [s for s in subjects if s.id != current_id]
+                
+            # Parse current_data and append to subjects
+            current_subj_obj = SubjectSyllabus.from_dict(current_data)
+            subjects.append(current_subj_obj)
+            
+            schedule_list = generate_weekly_schedule(subjects, today)
+            overlaps = find_schedule_overlaps(schedule_list)
+            
+            if overlaps:
+                # Find overlaps involving the current subject
+                current_subj_name = current_data["name"]
+                relevant_overlaps = []
+                for e1, e2 in overlaps:
+                    if e1["subject_id"] == current_subj_obj.id or e2["subject_id"] == current_subj_obj.id:
+                        days = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                        day_name = days[e1["day_of_week"]] if 1 <= e1["day_of_week"] <= 7 else str(e1["day_of_week"])
+                        relevant_overlaps.append(
+                            f"El horario del {day_name} {e1['start_time']}–{e1['end_time']} ({e1['subject_name']}) "
+                            f"se superpone con {e2['start_time']}–{e2['end_time']} ({e2['subject_name']})."
+                        )
+                
+                if relevant_overlaps:
+                    msg = "\n".join(relevant_overlaps) + "\n\n¿Deseás guardar igualmente?"
+                    reply = QMessageBox.question(
+                        self, "Advertencia de superposición", msg,
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+                        
+        except Exception as e:
+            import logging
+            logging.getLogger("fechas.app").error(f"Error checking overlaps: {e}")
 
         self.accept()
 

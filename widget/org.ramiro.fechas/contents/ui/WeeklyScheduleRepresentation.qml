@@ -28,12 +28,10 @@ Item {
         for (let offset = 0; offset < 7; offset++) {
             let day = currentDay + offset;
             if (day > 7) day -= 7;
-            if (grouped[day]) {
-                result.push({
-                    day_of_week: day,
-                    items: grouped[day]
-                });
-            }
+            result.push({
+                day_of_week: day,
+                items: grouped[day] || []
+            });
         }
         return result;
     }
@@ -72,6 +70,14 @@ Item {
                         font.bold: true
                         font.pixelSize: Kirigami.Units.gridUnit * 0.8
                         color: isToday(modelData.day_of_week) ? Kirigami.Theme.highlightColor : Kirigami.Theme.textColor
+                    }
+                    
+                    PlasmaComponents.Label {
+                        visible: modelData.items.length === 0
+                        text: "Sin cursada"
+                        font.pixelSize: Kirigami.Units.gridUnit * 0.65
+                        opacity: 0.6
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
                     }
                     
                     Repeater {

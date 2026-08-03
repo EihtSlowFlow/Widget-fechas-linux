@@ -93,7 +93,8 @@ class TestSubjectSyllabus(unittest.TestCase):
         subject_empty = SubjectSyllabus(name="Empty", start_date="2026-06-01", id="empty", syllabus=[])
         today = date(2026, 6, 1)
         results = process_subjects([subject_empty], today)
-        self.assertEqual(len(results), 0)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].topics, [])
 
     def test_corrupt_entry_valid_kept(self):
         data = {
@@ -193,7 +194,8 @@ class TestSubjectSyllabus(unittest.TestCase):
                  patch("backend.cache.SOURCES_FILE", config_dir / "sources.json"), \
                  patch("backend.cache.MANUAL_EVENTS_FILE", config_dir / "manual_events.json"), \
                  patch("backend.cache.SUBJECTS_FILE", config_dir / "subjects.json"), \
-                 patch("backend.config.SUBJECTS_FILE", config_dir / "subjects.json"):
+                 patch("backend.config.SUBJECTS_FILE", config_dir / "subjects.json"), \
+                 patch("backend.cache.CACHE_LOCK_FILE", data_dir / "cache.lock"):
                  
                 backend.config.ensure_dirs()
                 
@@ -230,6 +232,23 @@ class TestSubjectSyllabus(unittest.TestCase):
                 self.assertEqual(cache_data["current_subjects"][0]["week_number"], 1)
                 self.assertEqual(cache_data["current_subjects"][0]["topics"], ["Integración"])
 
+    def test_cachedata_legacy_format(self):
+        from backend.models import CacheData
+        # Simulated old cache.json contents without weekly_schedule
+        legacy_data = {
+            "last_sync": "2026-08-01T10:00:00",
+            "sync_status": "ok",
+            "events": [{"title": "Examen"}],
+            "current_subjects": [{"subject_id": "1"}]
+        }
+        
+        cache = CacheData.from_dict(legacy_data)
+        self.assertEqual(cache.last_sync, "2026-08-01T10:00:00")
+        self.assertEqual(cache.sync_status, "ok")
+        self.assertEqual(len(cache.events), 1)
+        self.assertEqual(len(cache.current_subjects), 1)
+        # Should gracefully default to empty list instead of failing
+        self.assertEqual(cache.weekly_schedule, [])
 
 if __name__ == "__main__":
     unittest.main()

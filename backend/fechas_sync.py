@@ -141,8 +141,7 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
                 if entry.start_week <= week_number <= entry.end_week:
                     topics.append(entry.topic)
                     
-        if topics:
-            current_subjects.append(CurrentSubjectWeek(
+        current_subjects.append(CurrentSubjectWeek(
             subject_id=subj.id,
             subject_name=subj.name,
             week_number=week_number,
