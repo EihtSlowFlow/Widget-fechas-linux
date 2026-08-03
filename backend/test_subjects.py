@@ -2,23 +2,23 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
-from backend.models import SubjectSyllabus, SyllabusEntry, SyllabusUnit
+from backend.models import SubjectSyllabus, SyllabusUnit
 from backend.fechas_sync import process_subjects
 
 
 class TestSubjectSyllabus(unittest.TestCase):
 
     def setUp(self):
-        self.syllabus = [
-            SyllabusEntry(start_week=1, end_week=2, topic="Tema 1: Intro"),
-            SyllabusEntry(start_week=2, end_week=4, topic="Tema 2: Bases"),
-            SyllabusEntry(start_week=5, end_week=5, topic="Tema 3: Avanzado"),
+        self.units = [
+            SyllabusUnit(name="Unidad 1", weeks=[1, 2], contents=["Tema 1: Intro"]),
+            SyllabusUnit(name="Unidad 2", weeks=[2, 3, 4], contents=["Tema 2: Bases"]),
+            SyllabusUnit(name="Unidad 3", weeks=[5], contents=["Tema 3: Avanzado"]),
         ]
         self.subject = SubjectSyllabus(
             name="Matemática",
             start_date="2026-06-01",
             id="test-id-123",
-            syllabus=self.syllabus
+            units=self.units
         )
 
     def test_day_1_week_1(self):
@@ -89,21 +89,21 @@ class TestSubjectSyllabus(unittest.TestCase):
         results = process_subjects([self.subject], today)
         self.assertEqual(len(results), 0)
 
-    def test_empty_syllabus(self):
-        subject_empty = SubjectSyllabus(name="Empty", start_date="2026-06-01", id="empty", syllabus=[])
+    def test_empty_units(self):
+        subject_empty = SubjectSyllabus(name="Empty", start_date="2026-06-01", id="empty", units=[])
         today = date(2026, 6, 1)
         results = process_subjects([subject_empty], today)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].topics, [])
 
-    def test_corrupt_entry_valid_kept(self):
+    def test_corrupt_unit_valid_kept(self):
         data = {
             "name": "Corrupt",
             "start_date": "2026-06-01",
             "id": "1",
-            "syllabus": [
-                {"start_week": "hola", "end_week": 2, "topic": "bad"},
-                {"start_week": 1, "end_week": 1, "topic": "good"}
+            "units": [
+                {"name": 123, "weeks": [1], "contents": ["bad"]},
+                {"name": "Valid", "weeks": [1], "contents": ["good"]}
             ]
         }
         subj = SubjectSyllabus.from_dict(data)
@@ -121,7 +121,7 @@ class TestSubjectSyllabus(unittest.TestCase):
         with patch("backend.cache._read_json") as mock_json:
             mock_json.return_value = [
                 {"name": "", "start_date": "bad-date"}, # Corrupt
-                {"name": "Valid", "start_date": "2026-06-01", "syllabus": [{"start_week": 1, "end_week": 1, "topic": "a"}]}
+                {"name": "Valid", "start_date": "2026-06-01", "units": [{"name": "U1", "weeks": [1], "contents": ["a"]}]}
             ]
             subjects = backend.cache.read_subjects()
             self.assertEqual(len(subjects), 1)
@@ -160,7 +160,6 @@ class TestSubjectSyllabus(unittest.TestCase):
             "start_date": "2026-06-01",
             "id": "test-id-123",
             "end_date": "2026-10-01",
-            "syllabus": [],
             "class_schedule": [{"day_of_week": 1, "start_time": "08:00", "end_time": "10:00", "location": "Aula 1"}]
         }
         subj = SubjectSyllabus.from_dict(data)
@@ -189,28 +188,19 @@ class TestSubjectSyllabus(unittest.TestCase):
         self.assertEqual(len(serialized["units"]), 2)
         self.assertEqual(serialized["units"][0]["contents"], ["Diseño", "Normalización"])
 
-    def test_subject_without_units_compat(self):
-        data = {
-            "name": "Vieja",
-            "start_date": "2026-06-01",
-            "id": "v1",
-            "syllabus": [{"start_week": 1, "end_week": 2, "topic": "Intro"}]
-        }
-        subj = SubjectSyllabus.from_dict(data)
-        self.assertEqual(subj.units, [])
-        self.assertEqual(len(subj.syllabus), 1)
+    def test_legacy_syllabus_is_ignored(self):
+        subject = SubjectSyllabus.from_dict({
+            "name": "Prueba",
+            "start_date": "2026-08-03",
+            "syllabus": [
+                {"start_week": 1, "end_week": 4, "topic": "Legado"}
+            ]
+        })
 
-    def test_subject_with_units_and_syllabus(self):
-        data = {
-            "name": "Dual",
-            "start_date": "2026-06-01",
-            "id": "d1",
-            "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Legacy"}],
-            "units": [{"name": "U1", "weeks": [1], "contents": ["New"]}]
-        }
-        subj = SubjectSyllabus.from_dict(data)
-        self.assertEqual(len(subj.syllabus), 1)
-        self.assertEqual(len(subj.units), 1)
+        serialized = subject.to_dict()
+
+        self.assertFalse(hasattr(subject, "syllabus"))
+        self.assertNotIn("syllabus", serialized)
 
     def test_pipeline_integration(self):
         import json
@@ -247,7 +237,6 @@ class TestSubjectSyllabus(unittest.TestCase):
                         "name": "Integration Subject",
                         "start_date": str(date.today()), # Starts today, so week 1
                         "id": "int1",
-                        "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Integración"}],
                         "units": [{"name": "Unidad 1", "weeks": [1], "contents": ["Integración"]}]
                     }
                 ]

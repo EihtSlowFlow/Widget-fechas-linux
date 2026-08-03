@@ -95,14 +95,14 @@ def is_subject_active(subj: SubjectSyllabus, today: date) -> bool:
     elapsed_days = (today - start_date).days
     week_number = elapsed_days // 7 + 1
 
-    if getattr(subj, 'end_date', None):
+    # Prioridades de finalización: end_date -> units -> 16 semanas
+    if subj.end_date:
         try:
-            end_date = date.fromisoformat(subj.end_date)
-            return today <= end_date
+            ed = date.fromisoformat(subj.end_date)
+            return today <= ed
         except ValueError:
             pass
 
-    # Fallback priorities: units > syllabus > 16 weeks
     unit_weeks = [
         week
         for unit in getattr(subj, 'units', [])
@@ -111,8 +111,6 @@ def is_subject_active(subj: SubjectSyllabus, today: date) -> bool:
 
     if unit_weeks:
         max_week = max(unit_weeks)
-    elif subj.syllabus:
-        max_week = max(e.end_week for e in subj.syllabus)
     else:
         max_week = 16
 
@@ -157,12 +155,6 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
                     for c in unit.contents:
                         if c not in topics:
                             topics.append(c)
-        else:
-            # Fallback to legacy syllabus
-            if subj.syllabus:
-                for entry in subj.syllabus:
-                    if entry.start_week <= week_number <= entry.end_week:
-                        topics.append(entry.topic)
 
         current_subjects.append(CurrentSubjectWeek(
             subject_id=subj.id,

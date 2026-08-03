@@ -108,7 +108,7 @@ class SubjectsView(QWidget):
             if hasattr(s, 'units') and s.units:
                 info = f"{len(s.units)} unidades"
             else:
-                info = f"{len(s.syllabus)} temas"
+                info = "Sin unidades configuradas"
             item = QListWidgetItem(f"📚 {s.name} ({info}, inicio: {s.start_date})")
             self._list.addItem(item)
 
@@ -147,14 +147,8 @@ class SubjectsView(QWidget):
                     lines.append("  Sin contenidos configurados.")
                 lines.append("")  # blank line between units
             self._detail_syllabus.setText("\n".join(lines).rstrip())
-        elif s.syllabus:
-            lines = [f"• Semanas {entry.start_week}-{entry.end_week}: {entry.topic}" for entry in s.syllabus]
-            # Mostrar solo los primeros 5 en la previsualización
-            if len(lines) > 5:
-                lines = lines[:5] + ["... (más temas)"]
-            self._detail_syllabus.setText("Temario:\n" + "\n".join(lines))
         else:
-            self._detail_syllabus.setText("Sin temario configurado.")
+            self._detail_syllabus.setText("Sin unidades configuradas.")
 
     def _delete_subject(self):
         row = self._list.currentRow()

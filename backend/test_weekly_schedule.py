@@ -1,6 +1,6 @@
 import unittest
 from datetime import date
-from backend.models import SubjectSyllabus, ClassScheduleEntry, SyllabusEntry
+from backend.models import SubjectSyllabus, ClassScheduleEntry
 from backend.fechas_sync import is_subject_active, generate_weekly_schedule
 
 class TestWeeklySchedule(unittest.TestCase):
@@ -197,30 +197,6 @@ class TestProcessSubjectsUnits(unittest.TestCase):
         results = process_subjects([subj], today)
         self.assertEqual(results[0].units, [{"name": "U1", "contents": []}])
         self.assertEqual(results[0].topics, [])
-
-    def test_fallback_to_legacy_syllabus(self):
-        subj = SubjectSyllabus(
-            name="Legacy", start_date="2026-06-01", id="leg",
-            syllabus=[SyllabusEntry(start_week=1, end_week=2, topic="Intro")]
-        )
-        today = date(2026, 6, 1)
-        from backend.fechas_sync import process_subjects
-        results = process_subjects([subj], today)
-        self.assertEqual(results[0].topics, ["Intro"])
-        self.assertEqual(results[0].units, [])
-
-    def test_units_present_but_no_match_does_not_fallback(self):
-        from backend.models import SyllabusUnit
-        subj = SubjectSyllabus(
-            name="Dual", start_date="2026-06-01", id="d1",
-            syllabus=[SyllabusEntry(start_week=1, end_week=1, topic="Legacy Topic")],
-            units=[SyllabusUnit(name="U1", weeks=[5], contents=["New Topic"])]
-        )
-        today = date(2026, 6, 1)  # week 1
-        from backend.fechas_sync import process_subjects
-        results = process_subjects([subj], today)
-        self.assertEqual(results[0].topics, [])
-        self.assertEqual(results[0].units, [])
 
     def test_is_subject_active_units_max_week(self):
         from backend.models import SyllabusUnit

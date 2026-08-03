@@ -118,43 +118,6 @@ class SubjectDialog(QDialog):
         unit_btn_layout.addStretch()
         layout.addLayout(unit_btn_layout)
 
-        # Legacy Syllabus Section
-        from PyQt6.QtWidgets import QWidget
-        self._legacy_container = QWidget()
-        legacy_layout = QVBoxLayout(self._legacy_container)
-        legacy_layout.setContentsMargins(0, 0, 0, 0)
-
-        self._legacy_syllabus_label = QLabel("Temario anterior (legado):")
-        legacy_layout.addWidget(self._legacy_syllabus_label)
-        
-        self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["Semana Inicio", "Semana Fin", "Tema"])
-        header = self._table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        legacy_layout.addWidget(self._table)
-
-        # Table buttons
-        tb_layout = QHBoxLayout()
-        self._add_topic_btn = QPushButton("+ Agregar Tema")
-        self._add_topic_btn.clicked.connect(self._add_topic)
-        tb_layout.addWidget(self._add_topic_btn)
-
-        self._remove_topic_btn = QPushButton("- Eliminar Seleccionado")
-        self._remove_topic_btn.setObjectName("dangerButton")
-        self._remove_topic_btn.clicked.connect(self._remove_topic)
-        tb_layout.addWidget(self._remove_topic_btn)
-        
-        tb_layout.addStretch()
-        legacy_layout.addLayout(tb_layout)
-
-        layout.addWidget(self._legacy_container)
-        
-        has_legacy = bool(self._subject_data and self._subject_data.get("syllabus"))
-        self._legacy_container.setVisible(has_legacy)
-
         # Action Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -180,13 +143,6 @@ class SubjectDialog(QDialog):
         if end_date_str:
             self._has_end_date.setChecked(True)
             self._end_date_edit.setDate(QDate.fromString(end_date_str, Qt.DateFormat.ISODate))
-            
-        syllabus = self._subject_data.get("syllabus", [])
-        self._table.setRowCount(len(syllabus))
-        for row, entry in enumerate(syllabus):
-            self._table.setItem(row, 0, QTableWidgetItem(str(entry.get("start_week", 1))))
-            self._table.setItem(row, 1, QTableWidgetItem(str(entry.get("end_week", 1))))
-            self._table.setItem(row, 2, QTableWidgetItem(entry.get("topic", "")))
 
         schedules = self._subject_data.get("class_schedule", [])
         self._schedule_table.setRowCount(len(schedules))
@@ -213,19 +169,6 @@ class SubjectDialog(QDialog):
         units = self._subject_data.get("units", [])
         for unit_data in units:
             self._insert_unit_row(unit_data)
-
-    def _add_topic(self):
-        row = self._table.rowCount()
-        self._table.insertRow(row)
-        # Defaults
-        self._table.setItem(row, 0, QTableWidgetItem("1"))
-        self._table.setItem(row, 1, QTableWidgetItem("1"))
-        self._table.setItem(row, 2, QTableWidgetItem("Nuevo tema"))
-
-    def _remove_topic(self):
-        row = self._table.currentRow()
-        if row >= 0:
-            self._table.removeRow(row)
 
     def _add_schedule(self):
         row = self._schedule_table.rowCount()
@@ -300,22 +243,6 @@ class SubjectDialog(QDialog):
             QMessageBox.warning(self, "Error", "El nombre de la materia no puede estar vacío.")
             self._name_edit.setFocus()
             return
-
-        # Validate syllabus
-        for row in range(self._table.rowCount()):
-            try:
-                sw = int(self._table.item(row, 0).text())
-                ew = int(self._table.item(row, 1).text())
-                if sw < 1 or ew < sw:
-                    raise ValueError
-            except (ValueError, AttributeError):
-                QMessageBox.warning(self, "Error", f"Fila temario {row+1}: Las semanas deben ser números enteros, inicio >= 1 y fin >= inicio.")
-                return
-                
-            topic = self._table.item(row, 2).text().strip()
-            if not topic:
-                QMessageBox.warning(self, "Error", f"Fila temario {row+1}: El tema no puede estar vacío.")
-                return
 
         if self._has_end_date.isChecked():
             if self._end_date_edit.date() < self._start_date_edit.date():
@@ -396,14 +323,6 @@ class SubjectDialog(QDialog):
         self.accept()
 
     def get_subject_data(self) -> dict:
-        syllabus = []
-        for row in range(self._table.rowCount()):
-            syllabus.append({
-                "start_week": int(self._table.item(row, 0).text()),
-                "end_week": int(self._table.item(row, 1).text()),
-                "topic": self._table.item(row, 2).text().strip()
-            })
-            
         schedules = []
         for row in range(self._schedule_table.rowCount()):
             combo = self._schedule_table.cellWidget(row, 0)
@@ -429,7 +348,6 @@ class SubjectDialog(QDialog):
             "name": self._name_edit.text().strip(),
             "start_date": self._start_date_edit.date().toString(Qt.DateFormat.ISODate),
             "end_date": self._end_date_edit.date().toString(Qt.DateFormat.ISODate) if self._has_end_date.isChecked() else "",
-            "syllabus": syllabus,
             "class_schedule": schedules,
             "units": units
         }
