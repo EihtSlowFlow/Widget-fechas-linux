@@ -1,8 +1,10 @@
+import os
 import sys
 import unittest
 from PyQt6.QtWidgets import QApplication
 
-# Initialize QApplication before importing or using any QWidget
+# Set offscreen platform for CI environments before creating QApplication
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 app = QApplication.instance() or QApplication(sys.argv)
 
 from app.dialogs.subject_dialog import SubjectDialog
@@ -16,7 +18,7 @@ class TestSubjectDialog(unittest.TestCase):
             "units": [{"name": "U1", "weeks": [1], "contents": ["A"]}]
         }
         dlg1 = SubjectDialog(subject_data=data_new)
-        self.assertFalse(dlg1._legacy_container.isVisible(), "Contenedor legado debe estar oculto si no hay syllabus")
+        self.assertTrue(dlg1._legacy_container.isHidden(), "Contenedor legado debe estar oculto si no hay syllabus")
         
         # With legacy syllabus
         data_legacy = {
@@ -25,7 +27,7 @@ class TestSubjectDialog(unittest.TestCase):
             "syllabus": [{"start_week": 1, "end_week": 1, "topic": "Legacy"}]
         }
         dlg2 = SubjectDialog(subject_data=data_legacy)
-        self.assertTrue(dlg2._legacy_container.isVisible(), "Contenedor legado debe ser visible si hay syllabus")
+        self.assertFalse(dlg2._legacy_container.isHidden(), "Contenedor legado debe ser visible si hay syllabus")
         
     def test_preserve_syllabus_when_units_present(self):
         data = {

@@ -123,12 +123,6 @@ class SyllabusUnitDialog(QDialog):
                     self._weeks_edit.setFocus()
                     return
 
-        # UI requires at least one valid week
-        if not weeks:
-            QMessageBox.warning(self, "Semanas requeridas", "La unidad debe tener al menos una semana válida.")
-            self._weeks_edit.setFocus()
-            return
-
         self.accept()
 
     def get_unit_data(self) -> dict:
