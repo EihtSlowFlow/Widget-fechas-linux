@@ -31,7 +31,7 @@ from backend.config import (
     SYNC_LOCK_FILE,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek
+from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek, SubjectSyllabus
 from backend.cache import (
     init_default_sources,
     read_sources,
@@ -82,42 +82,64 @@ def _fetch_events_from_source(source) -> tuple[list[AcademicEvent], str | None]:
         return [], str(e)
 
 
-def process_subjects(today: date) -> list[CurrentSubjectWeek]:
+def is_subject_active(subj: SubjectSyllabus, today: date) -> bool:
+    """Verifica si una materia se encuentra en curso."""
+    try:
+        start_date = date.fromisoformat(subj.start_date)
+    except ValueError:
+        return False
+        
+    if today < start_date:
+        return False
+
+    elapsed_days = (today - start_date).days
+    week_number = elapsed_days // 7 + 1
+
+    if getattr(subj, 'end_date', None):
+        try:
+            end_date = date.fromisoformat(subj.end_date)
+            return today <= end_date
+        except ValueError:
+            pass
+
+    # Fallback si no hay end_date o es inválida
+    if subj.syllabus:
+        max_end_week = max(e.end_week for e in subj.syllabus)
+        fallback_end = start_date + timedelta(weeks=max_end_week) - timedelta(days=1)
+    else:
+        fallback_end = start_date + timedelta(weeks=16) - timedelta(days=1)
+        
+    return today <= fallback_end
+
+def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[CurrentSubjectWeek]:
     """
     Procesa las materias configuradas y calcula su semana actual y temario.
     """
-    subjects = read_subjects()
     current_subjects = []
 
     for subj in subjects:
+        if not is_subject_active(subj, today):
+            continue
+
         try:
             start_date = date.fromisoformat(subj.start_date)
         except ValueError:
-            logger.error("Fecha de inicio inválida para la materia '%s': %s", subj.name, subj.start_date)
-            continue
-            
-        if not subj.syllabus:
             continue
             
         elapsed_days = (today - start_date).days
         week_number = elapsed_days // 7 + 1
         
-        if week_number < 1:
-            continue
-            
-        max_end_week = max(e.end_week for e in subj.syllabus)
-        if week_number > max_end_week:
-            continue
-            
+        # day_of_week relativo a la cursada, usado por el temario, no por agenda
         day_of_week = elapsed_days % 7 + 1
         
         week_start = start_date + timedelta(days=(week_number - 1) * 7)
         week_end = week_start + timedelta(days=6)
         
         topics = []
-        for entry in subj.syllabus:
-            if entry.start_week <= week_number <= entry.end_week:
-                topics.append(entry.topic)
+        if subj.syllabus:
+            for entry in subj.syllabus:
+                if entry.start_week <= week_number <= entry.end_week:
+                    topics.append(entry.topic)
                     
         current_subjects.append(CurrentSubjectWeek(
             subject_id=subj.id,
@@ -130,6 +152,63 @@ def process_subjects(today: date) -> list[CurrentSubjectWeek]:
         ))
         
     return current_subjects
+
+
+def generate_weekly_schedule(subjects: list[SubjectSyllabus], today: date) -> list[dict]:
+    """Genera la agenda semanal de clases para materias activas."""
+    schedule = []
+    
+    for subj in subjects:
+        if not is_subject_active(subj, today):
+            continue
+            
+        if not hasattr(subj, 'class_schedule') or not subj.class_schedule:
+            continue
+            
+        for entry in subj.class_schedule:
+            schedule.append({
+                "subject_id": subj.id,
+                "subject_name": subj.name,
+                "day_of_week": entry.day_of_week,
+                "start_time": entry.start_time,
+                "end_time": entry.end_time,
+                "location": getattr(entry, 'location', "")
+            })
+            
+    # Ordenar por día de la semana y hora de inicio
+    schedule.sort(key=lambda x: (x["day_of_week"], x["start_time"]))
+    return schedule
+
+def find_schedule_overlaps(entries: list[dict]) -> list[tuple]:
+    """
+    Encuentra solapamientos entre entradas de la agenda semanal.
+    entries es una lista de diccionarios, similar a la generada por generate_weekly_schedule.
+    Retorna una lista de tuplas con los diccionarios de las entradas que se solapan.
+    """
+    overlaps = []
+    # Agrupar por día
+    by_day = {}
+    for e in entries:
+        day = e["day_of_week"]
+        if day not in by_day:
+            by_day[day] = []
+        by_day[day].append(e)
+        
+    for day, day_entries in by_day.items():
+        # Ordenar por hora de inicio
+        day_entries.sort(key=lambda x: x["start_time"])
+        for i in range(len(day_entries)):
+            for j in range(i + 1, len(day_entries)):
+                e1 = day_entries[i]
+                e2 = day_entries[j]
+                # Si e2 comienza antes que e1 termine, hay solapamiento
+                if e2["start_time"] < e1["end_time"]:
+                    overlaps.append((e1, e2))
+                else:
+                    # Como están ordenados, si e2 comienza después del fin de e1, 
+                    # los siguientes también lo harán
+                    break
+    return overlaps
 
 
 def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
@@ -249,7 +328,9 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
             unique_events.append(e)
 
     # 9. Procesar materias
-    current_subjects = process_subjects(today)
+    subjects = read_subjects()
+    current_subjects = process_subjects(subjects, today)
+    weekly_schedule = generate_weekly_schedule(subjects, today)
     
     # 10. Construir cache y escribir bajo lock
     from backend.cache import apply_completed_status, cache_lock
@@ -274,6 +355,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                 sync_error=global_error,
                 events=event_dicts,
                 current_subjects=subject_dicts,
+                weekly_schedule=weekly_schedule,
             )
             write_cache(cache)
         write_sources(sources)
@@ -289,6 +371,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
             sync_error=global_error,
             events=event_dicts,
             current_subjects=subject_dicts,
+            weekly_schedule=weekly_schedule,
         )
         logger.info(
             "═══ DRY RUN: %d eventos procesados (no se escribió al disco) ═══",
@@ -308,6 +391,12 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
             logger.info("  📚 %s: Semana %d (Día %d/7)", cs.subject_name, cs.week_number, cs.day_of_week)
             for t in cs.topics:
                 logger.info("      - %s", t)
+                
+        logger.info("─── Agenda Semanal ───")
+        for ws in weekly_schedule:
+            days = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            day_name = days[ws["day_of_week"]] if 1 <= ws["day_of_week"] <= 7 else "Desconocido"
+            logger.info("  %s %s-%s: %s (Aula: %s)", day_name, ws["start_time"], ws["end_time"], ws["subject_name"], ws["location"])
 
     return cache
 

@@ -5,9 +5,10 @@ Diálogo para agregar o editar una materia y su temario.
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
-    QDateEdit, QMessageBox, QAbstractItemView
+    QDateEdit, QMessageBox, QAbstractItemView, QComboBox, QTimeEdit,
+    QCheckBox
 )
-from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtCore import Qt, QDate, QTime
 from app.styles.theme import DARK_PALETTE
 
 class SubjectDialog(QDialog):
@@ -46,7 +47,45 @@ class SubjectDialog(QDialog):
         date_layout.addWidget(self._start_date_edit)
         form_layout.addLayout(date_layout, stretch=1)
 
+        end_date_layout = QVBoxLayout()
+        self._has_end_date = QCheckBox("Fecha de Fin:")
+        self._has_end_date.stateChanged.connect(lambda state: self._end_date_edit.setEnabled(state == Qt.CheckState.Checked.value))
+        end_date_layout.addWidget(self._has_end_date)
+        self._end_date_edit = QDateEdit()
+        self._end_date_edit.setCalendarPopup(True)
+        self._end_date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._end_date_edit.setDate(QDate.currentDate().addMonths(4))
+        self._end_date_edit.setEnabled(False)
+        end_date_layout.addWidget(self._end_date_edit)
+        form_layout.addLayout(end_date_layout, stretch=1)
+
         layout.addLayout(form_layout)
+
+        # Schedules Section
+        layout.addWidget(QLabel("Horarios de Cursada:"))
+        
+        self._schedule_table = QTableWidget(0, 4)
+        self._schedule_table.setHorizontalHeaderLabels(["Día", "Desde", "Hasta", "Aula/Ubicación"])
+        s_header = self._schedule_table.horizontalHeader()
+        s_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        s_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        s_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        s_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self._schedule_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        layout.addWidget(self._schedule_table)
+
+        sch_btn_layout = QHBoxLayout()
+        self._add_sch_btn = QPushButton("+ Agregar Horario")
+        self._add_sch_btn.clicked.connect(self._add_schedule)
+        sch_btn_layout.addWidget(self._add_sch_btn)
+
+        self._remove_sch_btn = QPushButton("- Eliminar Seleccionado")
+        self._remove_sch_btn.setObjectName("dangerButton")
+        self._remove_sch_btn.clicked.connect(self._remove_schedule)
+        sch_btn_layout.addWidget(self._remove_sch_btn)
+        
+        sch_btn_layout.addStretch()
+        layout.addLayout(sch_btn_layout)
 
         # Syllabus Section
         layout.addWidget(QLabel("Temario (Syllabus):"))
@@ -95,12 +134,39 @@ class SubjectDialog(QDialog):
         if start_date_str:
             self._start_date_edit.setDate(QDate.fromString(start_date_str, Qt.DateFormat.ISODate))
             
+        end_date_str = self._subject_data.get("end_date", "")
+        if end_date_str:
+            self._has_end_date.setChecked(True)
+            self._end_date_edit.setDate(QDate.fromString(end_date_str, Qt.DateFormat.ISODate))
+            
         syllabus = self._subject_data.get("syllabus", [])
         self._table.setRowCount(len(syllabus))
         for row, entry in enumerate(syllabus):
             self._table.setItem(row, 0, QTableWidgetItem(str(entry.get("start_week", 1))))
             self._table.setItem(row, 1, QTableWidgetItem(str(entry.get("end_week", 1))))
             self._table.setItem(row, 2, QTableWidgetItem(entry.get("topic", "")))
+
+        schedules = self._subject_data.get("class_schedule", [])
+        self._schedule_table.setRowCount(len(schedules))
+        for row, entry in enumerate(schedules):
+            combo = QComboBox()
+            combo.addItems(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"])
+            day_idx = entry.get("day_of_week", 1) - 1
+            if 0 <= day_idx <= 6:
+                combo.setCurrentIndex(day_idx)
+            self._schedule_table.setCellWidget(row, 0, combo)
+            
+            start_time = QTimeEdit()
+            start_time.setDisplayFormat("HH:mm")
+            start_time.setTime(QTime.fromString(entry.get("start_time", "08:00"), "HH:mm"))
+            self._schedule_table.setCellWidget(row, 1, start_time)
+            
+            end_time = QTimeEdit()
+            end_time.setDisplayFormat("HH:mm")
+            end_time.setTime(QTime.fromString(entry.get("end_time", "10:00"), "HH:mm"))
+            self._schedule_table.setCellWidget(row, 2, end_time)
+            
+            self._schedule_table.setItem(row, 3, QTableWidgetItem(entry.get("location", "")))
 
     def _add_topic(self):
         row = self._table.rowCount()
@@ -114,6 +180,31 @@ class SubjectDialog(QDialog):
         row = self._table.currentRow()
         if row >= 0:
             self._table.removeRow(row)
+
+    def _add_schedule(self):
+        row = self._schedule_table.rowCount()
+        self._schedule_table.insertRow(row)
+        
+        combo = QComboBox()
+        combo.addItems(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"])
+        self._schedule_table.setCellWidget(row, 0, combo)
+        
+        start_time = QTimeEdit()
+        start_time.setDisplayFormat("HH:mm")
+        start_time.setTime(QTime(8, 0))
+        self._schedule_table.setCellWidget(row, 1, start_time)
+        
+        end_time = QTimeEdit()
+        end_time.setDisplayFormat("HH:mm")
+        end_time.setTime(QTime(10, 0))
+        self._schedule_table.setCellWidget(row, 2, end_time)
+        
+        self._schedule_table.setItem(row, 3, QTableWidgetItem(""))
+
+    def _remove_schedule(self):
+        row = self._schedule_table.currentRow()
+        if row >= 0:
+            self._schedule_table.removeRow(row)
 
     def _validate_and_accept(self):
         if not self._name_edit.text().strip():
@@ -129,13 +220,89 @@ class SubjectDialog(QDialog):
                 if sw < 1 or ew < sw:
                     raise ValueError
             except (ValueError, AttributeError):
-                QMessageBox.warning(self, "Error", f"Fila {row+1}: Las semanas deben ser números enteros, semana inicio >= 1 y fin >= inicio.")
+                QMessageBox.warning(self, "Error", f"Fila temario {row+1}: Las semanas deben ser números enteros, inicio >= 1 y fin >= inicio.")
                 return
                 
             topic = self._table.item(row, 2).text().strip()
             if not topic:
-                QMessageBox.warning(self, "Error", f"Fila {row+1}: El tema no puede estar vacío.")
+                QMessageBox.warning(self, "Error", f"Fila temario {row+1}: El tema no puede estar vacío.")
                 return
+
+        if self._has_end_date.isChecked():
+            if self._end_date_edit.date() < self._start_date_edit.date():
+                QMessageBox.warning(self, "Error", "La fecha de fin no puede ser anterior a la de inicio.")
+                self._end_date_edit.setFocus()
+                return
+
+        # Validate schedules
+        for row in range(self._schedule_table.rowCount()):
+            start = self._schedule_table.cellWidget(row, 1).time()
+            end = self._schedule_table.cellWidget(row, 2).time()
+            
+            if start >= end:
+                QMessageBox.warning(self, "Error", f"Fila horario {row+1}: La hora de inicio debe ser menor a la hora de fin.")
+                return
+
+        # Check for overlaps
+        current_data = self.get_subject_data()
+        
+        try:
+            from backend.cache import read_subjects
+            from backend.fechas_sync import generate_weekly_schedule, find_schedule_overlaps
+            from backend.models import SubjectSyllabus
+            from datetime import date
+            
+            # Use current date as today for overlaps check
+            today = date.today()
+            subjects = read_subjects()
+            
+            # Remove current subject from list if editing, to replace with current_data
+            current_id = current_data.get("id")
+            if current_id:
+                subjects = [s for s in subjects if s.id != current_id]
+                
+            current_subj_obj = SubjectSyllabus.from_dict(current_data)
+            
+            # Generate external schedule for all other active subjects
+            schedule_list = generate_weekly_schedule(subjects, today)
+            
+            # Force append current subject's schedule, ignoring its active status
+            for entry in current_data["class_schedule"]:
+                schedule_list.append({
+                    "day_of_week": entry["day_of_week"],
+                    "start_time": entry["start_time"],
+                    "end_time": entry["end_time"],
+                    "subject_id": current_subj_obj.id,
+                    "subject_name": current_subj_obj.name,
+                })
+            
+            overlaps = find_schedule_overlaps(schedule_list)
+            
+            if overlaps:
+                # Find overlaps involving the current subject
+                relevant_overlaps = []
+                for e1, e2 in overlaps:
+                    if e1["subject_id"] == current_subj_obj.id or e2["subject_id"] == current_subj_obj.id:
+                        days = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                        day_name = days[e1["day_of_week"]] if 1 <= e1["day_of_week"] <= 7 else str(e1["day_of_week"])
+                        relevant_overlaps.append(
+                            f"El horario del {day_name} {e1['start_time']}–{e1['end_time']} ({e1['subject_name']}) "
+                            f"se superpone con {e2['start_time']}–{e2['end_time']} ({e2['subject_name']})."
+                        )
+                
+                if relevant_overlaps:
+                    msg = "\n".join(relevant_overlaps) + "\n\n¿Deseás guardar igualmente?"
+                    reply = QMessageBox.question(
+                        self, "Advertencia de superposición", msg,
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+                        
+        except Exception as e:
+            import logging
+            logging.getLogger("fechas.app").error(f"Error checking overlaps: {e}")
 
         self.accept()
 
@@ -148,10 +315,27 @@ class SubjectDialog(QDialog):
                 "topic": self._table.item(row, 2).text().strip()
             })
             
+        schedules = []
+        for row in range(self._schedule_table.rowCount()):
+            combo = self._schedule_table.cellWidget(row, 0)
+            start_time = self._schedule_table.cellWidget(row, 1).time().toString("HH:mm")
+            end_time = self._schedule_table.cellWidget(row, 2).time().toString("HH:mm")
+            location_item = self._schedule_table.item(row, 3)
+            location = location_item.text().strip() if location_item else ""
+            
+            schedules.append({
+                "day_of_week": combo.currentIndex() + 1,
+                "start_time": start_time,
+                "end_time": end_time,
+                "location": location
+            })
+            
         data = {
             "name": self._name_edit.text().strip(),
             "start_date": self._start_date_edit.date().toString(Qt.DateFormat.ISODate),
-            "syllabus": syllabus
+            "end_date": self._end_date_edit.date().toString(Qt.DateFormat.ISODate) if self._has_end_date.isChecked() else "",
+            "syllabus": syllabus,
+            "class_schedule": schedules
         }
         
         if self._subject_data and "id" in self._subject_data:

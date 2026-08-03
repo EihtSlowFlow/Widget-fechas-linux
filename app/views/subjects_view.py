@@ -73,6 +73,11 @@ class SubjectsView(QWidget):
         self._detail_start.setStyleSheet(f"color: {DARK_PALETTE['text_secondary']}; background: transparent;")
         detail_layout.addWidget(self._detail_start)
 
+        self._detail_schedule = QLabel("")
+        self._detail_schedule.setWordWrap(True)
+        self._detail_schedule.setStyleSheet(f"color: {DARK_PALETTE['text_primary']}; font-size: 13px; background: transparent; margin-top: 8px; margin-bottom: 8px;")
+        detail_layout.addWidget(self._detail_schedule)
+
         self._detail_syllabus = QLabel("")
         self._detail_syllabus.setWordWrap(True)
         self._detail_syllabus.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-size: 12px; background: transparent;")
@@ -110,7 +115,21 @@ class SubjectsView(QWidget):
             return
         s = self._subjects[row]
         self._detail_name.setText(s.name)
-        self._detail_start.setText(f"Inicio de cursada: {s.start_date}")
+        if getattr(s, 'end_date', ""):
+            self._detail_start.setText(f"Inicio: {s.start_date} | Fin: {s.end_date}")
+        else:
+            self._detail_start.setText(f"Inicio de cursada: {s.start_date}")
+            
+        if not hasattr(s, 'class_schedule') or not s.class_schedule:
+            self._detail_schedule.setText("Sin horarios configurados.")
+        else:
+            days = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            lines = []
+            for entry in s.class_schedule:
+                day_name = days[entry.day_of_week] if 1 <= entry.day_of_week <= 7 else "Desconocido"
+                loc = f" (📍 {entry.location})" if entry.location else ""
+                lines.append(f"• {day_name} {entry.start_time}-{entry.end_time}{loc}")
+            self._detail_schedule.setText("Horarios:\n" + "\n".join(lines))
         
         if not s.syllabus:
             self._detail_syllabus.setText("Sin temario configurado.")
@@ -119,7 +138,7 @@ class SubjectsView(QWidget):
             # Mostrar solo los primeros 5 en la previsualización
             if len(lines) > 5:
                 lines = lines[:5] + ["... (más temas)"]
-            self._detail_syllabus.setText("\n".join(lines))
+            self._detail_syllabus.setText("Temario:\n" + "\n".join(lines))
 
     def _delete_subject(self):
         row = self._list.currentRow()
