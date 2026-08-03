@@ -191,11 +191,15 @@ class SyllabusUnit:
 
     @classmethod
     def from_dict(cls, data: dict) -> "SyllabusUnit":
-        name = str(data.get("name", "")).strip()
+        raw_name = data.get("name")
+        if not isinstance(raw_name, str):
+            raise ValueError("Nombre de unidad inválido")
+
+        name = raw_name.strip()
         if not name:
             raise ValueError("Nombre de unidad vacío")
 
-        # Validate weeks: must be a list, accept only int >= 1, reject booleans
+        # Validate weeks: must be a list, accept only int >= 1, reject booleans and floats
         raw_weeks = data.get("weeks", [])
         if not isinstance(raw_weeks, list):
             raw_weeks = []
@@ -203,12 +207,19 @@ class SyllabusUnit:
         for w in raw_weeks:
             if isinstance(w, bool):  # bool is subclass of int in Python
                 continue
-            try:
-                val = int(w)
-                if val >= 1:
-                    weeks.append(val)
-            except (ValueError, TypeError):
+            if isinstance(w, float):
                 continue
+                
+            val = None
+            if isinstance(w, int):
+                val = w
+            elif isinstance(w, str):
+                w = w.strip()
+                if w.isdigit():
+                    val = int(w)
+                    
+            if val is not None and val >= 1:
+                weeks.append(val)
         # Deduplicate preserving first occurrence, then sort
         weeks = sorted(set(weeks))
 

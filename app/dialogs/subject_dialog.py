@@ -119,8 +119,13 @@ class SubjectDialog(QDialog):
         layout.addLayout(unit_btn_layout)
 
         # Legacy Syllabus Section
+        from PyQt6.QtWidgets import QWidget
+        self._legacy_container = QWidget()
+        legacy_layout = QVBoxLayout(self._legacy_container)
+        legacy_layout.setContentsMargins(0, 0, 0, 0)
+
         self._legacy_syllabus_label = QLabel("Temario anterior (legado):")
-        layout.addWidget(self._legacy_syllabus_label)
+        legacy_layout.addWidget(self._legacy_syllabus_label)
         
         self._table = QTableWidget(0, 3)
         self._table.setHorizontalHeaderLabels(["Semana Inicio", "Semana Fin", "Tema"])
@@ -129,7 +134,7 @@ class SubjectDialog(QDialog):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        layout.addWidget(self._table)
+        legacy_layout.addWidget(self._table)
 
         # Table buttons
         tb_layout = QHBoxLayout()
@@ -143,7 +148,12 @@ class SubjectDialog(QDialog):
         tb_layout.addWidget(self._remove_topic_btn)
         
         tb_layout.addStretch()
-        layout.addLayout(tb_layout)
+        legacy_layout.addLayout(tb_layout)
+
+        layout.addWidget(self._legacy_container)
+        
+        has_legacy = bool(self._subject_data and self._subject_data.get("syllabus"))
+        self._legacy_container.setVisible(has_legacy)
 
         # Action Buttons
         btn_layout = QHBoxLayout()

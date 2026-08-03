@@ -321,6 +321,14 @@ class TestSyllabusUnit(unittest.TestCase):
         with self.assertRaises(ValueError):
             SyllabusUnit.from_dict({"name": "   ", "weeks": [1]})
 
+    def test_name_none_raises(self):
+        with self.assertRaises(ValueError):
+            SyllabusUnit.from_dict({"name": None, "weeks": [1]})
+
+    def test_name_int_raises(self):
+        with self.assertRaises(ValueError):
+            SyllabusUnit.from_dict({"name": 123, "weeks": [1]})
+
     def test_weeks_deduplication_and_sorting(self):
         unit = SyllabusUnit.from_dict({"name": "U", "weeks": [3, 1, 2, 1, 3]})
         self.assertEqual(unit.weeks, [1, 2, 3])
@@ -328,6 +336,10 @@ class TestSyllabusUnit(unittest.TestCase):
     def test_weeks_invalid_values_ignored(self):
         unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1, "hola", -1, 0, 2]})
         self.assertEqual(unit.weeks, [1, 2])
+
+    def test_weeks_float_ignored(self):
+        unit = SyllabusUnit.from_dict({"name": "U", "weeks": [1, 1.5, 2.9, 3]})
+        self.assertEqual(unit.weeks, [1, 3])
 
     def test_weeks_boolean_rejected(self):
         unit = SyllabusUnit.from_dict({"name": "U", "weeks": [True, False, 2]})

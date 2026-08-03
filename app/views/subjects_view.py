@@ -136,9 +136,9 @@ class SubjectsView(QWidget):
         
         if hasattr(s, 'units') and s.units:
             lines = []
-            for i, unit in enumerate(s.units, 1):
+            for unit in s.units:
                 weeks_str = ", ".join(str(w) for w in unit.weeks)
-                lines.append(f"Unidad {i} — {unit.name}")
+                lines.append(unit.name)
                 lines.append(f"Semanas: {weeks_str}")
                 if unit.contents:
                     for c in unit.contents:
