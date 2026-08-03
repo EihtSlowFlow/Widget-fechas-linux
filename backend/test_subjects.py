@@ -21,11 +21,9 @@ class TestSubjectSyllabus(unittest.TestCase):
             syllabus=self.syllabus
         )
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_day_1_week_1(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_day_1_week_1(self):
         today = date(2026, 6, 1)
-        results = process_subjects(today)
+        results = process_subjects([self.subject], today)
         
         self.assertEqual(len(results), 1)
         res = results[0]
@@ -34,11 +32,9 @@ class TestSubjectSyllabus(unittest.TestCase):
         self.assertEqual(res.topics, ["Tema 1: Intro"])
         self.assertEqual(res.week_start, "2026-06-01")
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_day_6_week_1(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_day_6_week_1(self):
         today = date(2026, 6, 6) # elapsed=5 -> day_of_week=6
-        results = process_subjects(today)
+        results = process_subjects([self.subject], today)
         
         self.assertEqual(len(results), 1)
         res = results[0]
@@ -46,11 +42,9 @@ class TestSubjectSyllabus(unittest.TestCase):
         self.assertEqual(res.day_of_week, 6)
         self.assertEqual(res.topics, ["Tema 1: Intro"])
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_day_7_week_1(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_day_7_week_1(self):
         today = date(2026, 6, 7) # elapsed=6 -> day_of_week=7
-        results = process_subjects(today)
+        results = process_subjects([self.subject], today)
         
         self.assertEqual(len(results), 1)
         res = results[0]
@@ -58,11 +52,9 @@ class TestSubjectSyllabus(unittest.TestCase):
         self.assertEqual(res.day_of_week, 7)
         self.assertEqual(res.topics, ["Tema 1: Intro"])
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_day_8_week_2(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_day_8_week_2(self):
         today = date(2026, 6, 8) # elapsed=7 -> week=2, day=1
-        results = process_subjects(today)
+        results = process_subjects([self.subject], today)
         
         self.assertEqual(len(results), 1)
         res = results[0]
@@ -71,48 +63,39 @@ class TestSubjectSyllabus(unittest.TestCase):
         # Week 2 has both Tema 1 and Tema 2 due to overlap
         self.assertEqual(res.topics, ["Tema 1: Intro", "Tema 2: Bases"])
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_before_start_date(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_before_start_date(self):
         today = date(2026, 5, 30) # 2 days before start
-        results = process_subjects(today)
+        results = process_subjects([self.subject], today)
         self.assertEqual(len(results), 0)
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_first_last_day_last_week(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_first_last_day_last_week(self):
         # max_end_week is 5 (starts at day 29 of course)
         # Week 5 start day (elapsed_days = 28)
         today = date(2026, 6, 29) 
-        res1 = process_subjects(today)
+        res1 = process_subjects([self.subject], today)
         self.assertEqual(len(res1), 1)
         self.assertEqual(res1[0].week_number, 5)
         self.assertEqual(res1[0].day_of_week, 1)
 
         # Week 5 end day (elapsed_days = 34)
         today = date(2026, 7, 5)
-        res2 = process_subjects(today)
+        res2 = process_subjects([self.subject], today)
         self.assertEqual(len(res2), 1)
         self.assertEqual(res2[0].week_number, 5)
         self.assertEqual(res2[0].day_of_week, 7)
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_after_last_topic(self, mock_read):
-        mock_read.return_value = [self.subject]
+    def test_after_last_topic(self):
         today = date(2026, 7, 6) # elapsed_days = 35 -> week 6
-        results = process_subjects(today)
+        results = process_subjects([self.subject], today)
         self.assertEqual(len(results), 0)
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_empty_syllabus(self, mock_read):
+    def test_empty_syllabus(self):
         subject_empty = SubjectSyllabus(name="Empty", start_date="2026-06-01", id="empty", syllabus=[])
-        mock_read.return_value = [subject_empty]
         today = date(2026, 6, 1)
-        results = process_subjects(today)
+        results = process_subjects([subject_empty], today)
         self.assertEqual(len(results), 0)
 
-    @patch("backend.fechas_sync.read_subjects")
-    def test_corrupt_entry_valid_kept(self, mock_read):
+    def test_corrupt_entry_valid_kept(self):
         data = {
             "name": "Corrupt",
             "start_date": "2026-06-01",
@@ -123,9 +106,8 @@ class TestSubjectSyllabus(unittest.TestCase):
             ]
         }
         subj = SubjectSyllabus.from_dict(data)
-        mock_read.return_value = [subj]
         today = date(2026, 6, 1)
-        results = process_subjects(today)
+        results = process_subjects([subj], today)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].topics, ["good"])
 
@@ -143,6 +125,49 @@ class TestSubjectSyllabus(unittest.TestCase):
             subjects = backend.cache.read_subjects()
             self.assertEqual(len(subjects), 1)
             self.assertEqual(subjects[0].name, "Valid")
+
+    def test_class_schedule_entry_valid(self):
+        from backend.models import ClassScheduleEntry
+        data = {"day_of_week": 1, "start_time": "08:00", "end_time": "10:00", "location": "Aula 1"}
+        entry = ClassScheduleEntry.from_dict(data)
+        self.assertEqual(entry.day_of_week, 1)
+        self.assertEqual(entry.start_time, "08:00")
+        self.assertEqual(entry.end_time, "10:00")
+        self.assertEqual(entry.location, "Aula 1")
+
+    def test_class_schedule_entry_invalid_day(self):
+        from backend.models import ClassScheduleEntry
+        data = {"day_of_week": 8, "start_time": "08:00", "end_time": "10:00"}
+        with self.assertRaises(ValueError):
+            ClassScheduleEntry.from_dict(data)
+
+    def test_class_schedule_entry_invalid_time(self):
+        from backend.models import ClassScheduleEntry
+        data = {"day_of_week": 1, "start_time": "25:70", "end_time": "10:00"}
+        with self.assertRaises(ValueError):
+            ClassScheduleEntry.from_dict(data)
+
+    def test_class_schedule_entry_end_before_start(self):
+        from backend.models import ClassScheduleEntry
+        data = {"day_of_week": 1, "start_time": "10:00", "end_time": "08:00"}
+        with self.assertRaises(ValueError):
+            ClassScheduleEntry.from_dict(data)
+            
+    def test_subject_serialization_with_schedule(self):
+        data = {
+            "name": "Matemática",
+            "start_date": "2026-06-01",
+            "id": "test-id-123",
+            "end_date": "2026-10-01",
+            "syllabus": [],
+            "class_schedule": [{"day_of_week": 1, "start_time": "08:00", "end_time": "10:00", "location": "Aula 1"}]
+        }
+        subj = SubjectSyllabus.from_dict(data)
+        self.assertEqual(subj.end_date, "2026-10-01")
+        self.assertEqual(len(subj.class_schedule), 1)
+        
+        serialized = subj.to_dict()
+        self.assertEqual(serialized["class_schedule"][0]["start_time"], "08:00")
 
     def test_pipeline_integration(self):
         import json

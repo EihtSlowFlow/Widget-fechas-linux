@@ -14,6 +14,7 @@ PlasmoidItem {
     // ─── Data Properties ─────────────────────────────────────
     property var eventsModel: []
     property var subjectsModel: []
+    property var weeklyScheduleModel: []
     property string lastSync: ""
     property string syncStatus: "pending"
     property string syncError: ""
@@ -49,7 +50,8 @@ PlasmoidItem {
                     root.eventsModel = allEvents.filter(function(e) { return e.is_completed !== true; });
                     root.eventCount = root.eventsModel.length;
                     root.subjectsModel = json.current_subjects || [];
-                    console.log("[FechasAcadémicas] Loaded " + root.eventCount + " events, " + root.subjectsModel.length + " subjects");
+                    root.weeklyScheduleModel = json.weekly_schedule || [];
+                    console.log("[FechasAcadémicas] Loaded " + root.eventCount + " events, " + root.subjectsModel.length + " subjects, " + root.weeklyScheduleModel.length + " schedule entries");
                 } catch (e) {
                     console.log("[FechasAcadémicas] Error parsing cache: " + e);
                 }

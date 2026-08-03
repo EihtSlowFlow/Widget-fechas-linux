@@ -9,6 +9,56 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, date
 from typing import Optional
+import re
+
+@dataclass
+class ClassScheduleEntry:
+    """Representa un horario de cursada en la semana."""
+    day_of_week: int  # 1 (Lunes) a 7 (Domingo)
+    start_time: str   # "HH:mm"
+    end_time: str     # "HH:mm"
+    location: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ClassScheduleEntry:
+        try:
+            day = int(data.get("day_of_week", 0))
+            if not 1 <= day <= 7:
+                raise ValueError(f"Día inválido: {day}")
+        except (ValueError, TypeError):
+            raise ValueError("Día de la semana inválido")
+
+        start_time = str(data.get("start_time", "")).strip()
+        end_time = str(data.get("end_time", "")).strip()
+        
+        time_pattern = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+        if not time_pattern.match(start_time):
+            raise ValueError(f"start_time inválido: {start_time}")
+        if not time_pattern.match(end_time):
+            raise ValueError(f"end_time inválido: {end_time}")
+            
+        if start_time >= end_time:
+            raise ValueError(f"start_time debe ser menor a end_time ({start_time} >= {end_time})")
+
+        location = str(data.get("location", "")).strip()[:100]
+
+        # Filtrar campos desconocidos
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        
+        # Sobreescribir con los valores parseados y validados
+        filtered.update({
+            "day_of_week": day,
+            "start_time": start_time,
+            "end_time": end_time,
+            "location": location
+        })
+        
+        return cls(**filtered)
+
 
 
 @dataclass
@@ -135,11 +185,14 @@ class SubjectSyllabus:
     name: str
     start_date: str                     # ISO 8601: "2026-06-20"
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    end_date: str = ""                  # Opcional ISO 8601
     syllabus: list[SyllabusEntry] = field(default_factory=list)
+    class_schedule: list[ClassScheduleEntry] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d['syllabus'] = [entry.to_dict() for entry in self.syllabus]
+        d['class_schedule'] = [entry.to_dict() for entry in self.class_schedule]
         return d
 
     @classmethod
@@ -167,12 +220,41 @@ class SubjectSyllabus:
                 # Descartar solo la entrada corrupta
                 continue
                 
+        schedule_data = data.get("class_schedule", [])
+        if not isinstance(schedule_data, list):
+            schedule_data = []
+            
+        class_schedule = []
+        for e in schedule_data:
+            if not isinstance(e, dict):
+                continue
+            try:
+                class_schedule.append(ClassScheduleEntry.from_dict(e))
+            except (ValueError, TypeError) as ex:
+                # Descartar entrada corrupta de horario sin afectar el resto
+                import logging
+                logging.getLogger("fechas.models").warning(f"Error parseando ClassScheduleEntry: {ex}")
+                continue
+
         # Mantener el ID original o generar uno si no existe
         subj_id = data.get("id")
         if not subj_id or not isinstance(subj_id, str):
             subj_id = str(uuid.uuid4())
             
-        return cls(name=name, start_date=start_date, id=subj_id, syllabus=syllabus)
+        end_date = str(data.get("end_date", "")).strip()
+        if end_date:
+            try:
+                ed = date.fromisoformat(end_date)
+                sd = date.fromisoformat(start_date)
+                if ed < sd:
+                    import logging
+                    logging.getLogger("fechas.models").warning(f"end_date {end_date} es anterior a start_date {start_date}, ignorando.")
+                    end_date = ""
+            except ValueError:
+                end_date = ""
+            
+        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, syllabus=syllabus, class_schedule=class_schedule)
+
 
 
 @dataclass
@@ -205,6 +287,7 @@ class CacheData:
     sync_error: Optional[str] = None
     events: list[dict] = field(default_factory=list)
     current_subjects: list[dict] = field(default_factory=list)
+    weekly_schedule: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convierte a diccionario para serialización JSON."""
@@ -219,4 +302,6 @@ class CacheData:
             sync_error=data.get("sync_error"),
             events=data.get("events", []),
             current_subjects=data.get("current_subjects", []),
+            weekly_schedule=data.get("weekly_schedule", []),
         )
+
