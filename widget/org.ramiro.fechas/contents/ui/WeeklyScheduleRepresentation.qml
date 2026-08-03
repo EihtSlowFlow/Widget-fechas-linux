@@ -203,7 +203,7 @@ Item {
             // Empty state
             PlasmaComponents.Label {
                 Layout.alignment: Qt.AlignHCenter
-                visible: root.groupedSchedule.length === 0 && root.subjectsModel.length === 0
+                visible: root.scheduleModel.length === 0 && root.subjectsModel.length === 0
                 text: "📅 Sin agenda ni temario"
                 opacity: 0.5
                 font.pixelSize: Kirigami.Units.gridUnit * 0.7

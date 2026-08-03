@@ -31,7 +31,7 @@ from backend.config import (
     SYNC_LOCK_FILE,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek
+from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek, SubjectSyllabus
 from backend.cache import (
     init_default_sources,
     read_sources,

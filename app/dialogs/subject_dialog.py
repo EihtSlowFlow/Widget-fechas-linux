@@ -261,16 +261,25 @@ class SubjectDialog(QDialog):
             if current_id:
                 subjects = [s for s in subjects if s.id != current_id]
                 
-            # Parse current_data and append to subjects
             current_subj_obj = SubjectSyllabus.from_dict(current_data)
-            subjects.append(current_subj_obj)
             
+            # Generate external schedule for all other active subjects
             schedule_list = generate_weekly_schedule(subjects, today)
+            
+            # Force append current subject's schedule, ignoring its active status
+            for entry in current_data["class_schedule"]:
+                schedule_list.append({
+                    "day_of_week": entry["day_of_week"],
+                    "start_time": entry["start_time"],
+                    "end_time": entry["end_time"],
+                    "subject_id": current_subj_obj.id,
+                    "subject_name": current_subj_obj.name,
+                })
+            
             overlaps = find_schedule_overlaps(schedule_list)
             
             if overlaps:
                 # Find overlaps involving the current subject
-                current_subj_name = current_data["name"]
                 relevant_overlaps = []
                 for e1, e2 in overlaps:
                     if e1["subject_id"] == current_subj_obj.id or e2["subject_id"] == current_subj_obj.id:

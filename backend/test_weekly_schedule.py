@@ -92,5 +92,39 @@ class TestWeeklySchedule(unittest.TestCase):
         # E has no overlaps
         self.assertFalse(any(e1["subject_id"] == "e" or e2["subject_id"] == "e" for e1, e2 in overlaps))
 
+    def test_future_subject_internal_overlap(self):
+        from backend.fechas_sync import find_schedule_overlaps, generate_weekly_schedule
+        
+        # Simula una materia futura (inactiva) que el usuario está editando
+        # y le asigna dos horarios que se superponen entre sí.
+        subj_future = SubjectSyllabus(
+            name="Futura",
+            start_date="2026-12-01",
+            id="fut",
+            class_schedule=[
+                ClassScheduleEntry(day_of_week=1, start_time="08:00", end_time="10:00", location=""),
+                ClassScheduleEntry(day_of_week=1, start_time="09:00", end_time="11:00", location="")
+            ]
+        )
+        
+        today = date(2026, 6, 1)
+        
+        # generate_weekly_schedule ignora las materias futuras
+        schedule_list = generate_weekly_schedule([subj_future], today)
+        self.assertEqual(len(schedule_list), 0)
+        
+        # Pero la lógica de validación (del diálogo) fuerza la inserción de los horarios editados
+        for entry in subj_future.class_schedule:
+            schedule_list.append({
+                "day_of_week": entry.day_of_week,
+                "start_time": entry.start_time,
+                "end_time": entry.end_time,
+                "subject_id": subj_future.id,
+                "subject_name": subj_future.name,
+            })
+            
+        overlaps = find_schedule_overlaps(schedule_list)
+        self.assertEqual(len(overlaps), 1)
+        
 if __name__ == "__main__":
     unittest.main()
