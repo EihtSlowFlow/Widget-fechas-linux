@@ -311,7 +311,6 @@ Item {
                         }
                     }
                 }
-            }
 
             // Empty state
             PlasmaComponents.Label {
