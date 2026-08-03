@@ -1,6 +1,6 @@
 import unittest
 from datetime import date
-from backend.models import SubjectSyllabus, ClassScheduleEntry
+from backend.models import SubjectSyllabus, ClassScheduleEntry, SyllabusEntry
 from backend.fechas_sync import is_subject_active, generate_weekly_schedule
 
 class TestWeeklySchedule(unittest.TestCase):
@@ -125,6 +125,143 @@ class TestWeeklySchedule(unittest.TestCase):
             
         overlaps = find_schedule_overlaps(schedule_list)
         self.assertEqual(len(overlaps), 1)
-        
+
+class TestProcessSubjectsUnits(unittest.TestCase):
+
+    def test_single_unit_current_week(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[SyllabusUnit(name="U1", weeks=[1, 2, 3], contents=["Diseño", "Normal"])]
+        )
+        today = date(2026, 6, 1)  # week 1
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].units, [{"name": "U1", "contents": ["Diseño", "Normal"]}])
+        self.assertEqual(results[0].topics, ["Diseño", "Normal"])
+
+    def test_unit_not_in_current_week(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[SyllabusUnit(name="U1", weeks=[5, 6], contents=["Avanzado"])]
+        )
+        today = date(2026, 6, 1)  # week 1
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].units, [])
+        self.assertEqual(results[0].topics, [])
+
+    def test_multiple_units_same_week(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[
+                SyllabusUnit(name="U1", weeks=[1, 2, 3, 4], contents=["Restricciones"]),
+                SyllabusUnit(name="U2", weeks=[4, 5], contents=["Planes de ejecución", "Índices"])
+            ]
+        )
+        today = date(2026, 6, 22)  # elapsed 21 -> week 4
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(len(results[0].units), 2)
+        self.assertEqual(results[0].units[0]["name"], "U1")
+        self.assertEqual(results[0].units[1]["name"], "U2")
+        self.assertEqual(results[0].topics, ["Restricciones", "Planes de ejecución", "Índices"])
+
+    def test_unit_non_consecutive_weeks(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[SyllabusUnit(name="U1", weeks=[1, 3, 5], contents=["Tema"])]
+        )
+        today = date(2026, 6, 8)  # week 2
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(results[0].units, [])
+        today = date(2026, 6, 15)  # week 3
+        results = process_subjects([subj], today)
+        self.assertEqual(results[0].units, [{"name": "U1", "contents": ["Tema"]}])
+
+    def test_unit_without_contents(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[SyllabusUnit(name="U1", weeks=[1], contents=[])]
+        )
+        today = date(2026, 6, 1)
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(results[0].units, [{"name": "U1", "contents": []}])
+        self.assertEqual(results[0].topics, [])
+
+    def test_fallback_to_legacy_syllabus(self):
+        subj = SubjectSyllabus(
+            name="Legacy", start_date="2026-06-01", id="leg",
+            syllabus=[SyllabusEntry(start_week=1, end_week=2, topic="Intro")]
+        )
+        today = date(2026, 6, 1)
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(results[0].topics, ["Intro"])
+        self.assertEqual(results[0].units, [])
+
+    def test_units_present_but_no_match_does_not_fallback(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="Dual", start_date="2026-06-01", id="d1",
+            syllabus=[SyllabusEntry(start_week=1, end_week=1, topic="Legacy Topic")],
+            units=[SyllabusUnit(name="U1", weeks=[5], contents=["New Topic"])]
+        )
+        today = date(2026, 6, 1)  # week 1
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(results[0].topics, [])
+        self.assertEqual(results[0].units, [])
+
+    def test_is_subject_active_units_max_week(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[SyllabusUnit(name="U1", weeks=[1, 2, 3, 4, 5], contents=[])]
+        )
+        self.assertTrue(is_subject_active(subj, date(2026, 7, 5)))   # day 34, within 5 weeks
+        self.assertFalse(is_subject_active(subj, date(2026, 7, 6)))  # day 35, past 5 weeks
+
+    def test_is_subject_active_end_date_over_units(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            end_date="2026-12-31",
+            units=[SyllabusUnit(name="U1", weeks=[1], contents=[])]
+        )
+        self.assertTrue(is_subject_active(subj, date(2026, 12, 31)))
+        self.assertFalse(is_subject_active(subj, date(2027, 1, 1)))
+
+    def test_is_subject_active_units_empty_weeks(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[SyllabusUnit(name="U1", weeks=[], contents=[])]
+        )
+        self.assertTrue(is_subject_active(subj, date(2026, 9, 1)))
+
+    def test_flat_topics_no_duplicates(self):
+        from backend.models import SyllabusUnit
+        subj = SubjectSyllabus(
+            name="BD", start_date="2026-06-01", id="bd",
+            units=[
+                SyllabusUnit(name="U1", weeks=[1], contents=["A", "B"]),
+                SyllabusUnit(name="U2", weeks=[1], contents=["B", "C"])
+            ]
+        )
+        today = date(2026, 6, 1)
+        from backend.fechas_sync import process_subjects
+        results = process_subjects([subj], today)
+        self.assertEqual(results[0].topics, ["A", "B", "C"])
+
 if __name__ == "__main__":
     unittest.main()

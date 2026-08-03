@@ -183,8 +183,50 @@ Item {
                                 }
                             }
                             
+                            // Units display (new model)
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                visible: modelData.units && modelData.units.length > 0
+
+                                Repeater {
+                                    model: modelData.units
+                                    delegate: ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+
+                                        PlasmaComponents.Label {
+                                            text: modelData.name
+                                            font.bold: true
+                                            font.pixelSize: Kirigami.Units.gridUnit * 0.65
+                                            color: Kirigami.Theme.highlightColor
+                                            opacity: 0.9
+                                        }
+
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            visible: modelData.contents && modelData.contents.length > 0
+                                            text: modelData.contents ? modelData.contents.map(c => "• " + c).join("\n") : ""
+                                            font.pixelSize: Kirigami.Units.gridUnit * 0.6
+                                            wrapMode: Text.WordWrap
+                                            opacity: 0.8
+                                        }
+
+                                        PlasmaComponents.Label {
+                                            visible: !modelData.contents || modelData.contents.length === 0
+                                            text: "Sin contenidos configurados."
+                                            font.pixelSize: Kirigami.Units.gridUnit * 0.6
+                                            opacity: 0.5
+                                            font.italic: true
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Legacy topics fallback
                             PlasmaComponents.Label {
                                 Layout.fillWidth: true
+                                visible: (!modelData.units || modelData.units.length === 0)
                                 text: {
                                     if (modelData.topics && modelData.topics.length > 0) {
                                         return modelData.topics.map(t => "• " + t).join("\n");

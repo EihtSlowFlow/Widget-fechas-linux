@@ -102,13 +102,21 @@ def is_subject_active(subj: SubjectSyllabus, today: date) -> bool:
         except ValueError:
             pass
 
-    # Fallback si no hay end_date o es inválida
-    if subj.syllabus:
-        max_end_week = max(e.end_week for e in subj.syllabus)
-        fallback_end = start_date + timedelta(weeks=max_end_week) - timedelta(days=1)
+    # Fallback priorities: units > syllabus > 16 weeks
+    unit_weeks = [
+        week
+        for unit in getattr(subj, 'units', [])
+        for week in unit.weeks
+    ]
+
+    if unit_weeks:
+        max_week = max(unit_weeks)
+    elif subj.syllabus:
+        max_week = max(e.end_week for e in subj.syllabus)
     else:
-        fallback_end = start_date + timedelta(weeks=16) - timedelta(days=1)
-        
+        max_week = 16
+
+    fallback_end = start_date + timedelta(weeks=max_week) - timedelta(days=1)
     return today <= fallback_end
 
 def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[CurrentSubjectWeek]:
@@ -136,11 +144,26 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
         week_end = week_start + timedelta(days=6)
         
         topics = []
-        if subj.syllabus:
-            for entry in subj.syllabus:
-                if entry.start_week <= week_number <= entry.end_week:
-                    topics.append(entry.topic)
-                    
+        unit_dicts = []
+
+        if subj.units:
+            # Use units model exclusively when units exist
+            for unit in subj.units:
+                if week_number in unit.weeks:
+                    unit_dicts.append({
+                        "name": unit.name,
+                        "contents": list(unit.contents)
+                    })
+                    for c in unit.contents:
+                        if c not in topics:
+                            topics.append(c)
+        else:
+            # Fallback to legacy syllabus
+            if subj.syllabus:
+                for entry in subj.syllabus:
+                    if entry.start_week <= week_number <= entry.end_week:
+                        topics.append(entry.topic)
+
         current_subjects.append(CurrentSubjectWeek(
             subject_id=subj.id,
             subject_name=subj.name,
@@ -148,7 +171,8 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
             day_of_week=day_of_week,
             week_start=week_start.isoformat(),
             week_end=week_end.isoformat(),
-            topics=topics
+            topics=topics,
+            units=unit_dicts
         ))
         
     return current_subjects
