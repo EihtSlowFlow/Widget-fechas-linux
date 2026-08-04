@@ -14,15 +14,20 @@ from app.styles.theme import DARK_PALETTE
 class SubjectDialog(QDialog):
     """Diálogo para configurar una materia."""
 
-    def __init__(self, parent=None, subject_data=None):
+    def __init__(self, parent=None, subject_data=None, academic_period=None):
         super().__init__(parent)
         self.setWindowTitle("Configurar Materia")
         self.setMinimumWidth(550)
         self.setMinimumHeight(450)
         self._subject_data = subject_data
+        self._academic_period = academic_period
         self._setup_ui()
         if self._subject_data:
             self._load_data()
+        elif self._academic_period:
+            self._start_date_edit.setDate(QDate.fromString(self._academic_period.start_date, Qt.DateFormat.ISODate))
+            
+        self._update_period_warning()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -44,6 +49,7 @@ class SubjectDialog(QDialog):
         self._start_date_edit.setCalendarPopup(True)
         self._start_date_edit.setDisplayFormat("yyyy-MM-dd")
         self._start_date_edit.setDate(QDate.currentDate())
+        self._start_date_edit.dateChanged.connect(self._update_period_warning)
         date_layout.addWidget(self._start_date_edit)
         form_layout.addLayout(date_layout, stretch=1)
 
@@ -60,6 +66,12 @@ class SubjectDialog(QDialog):
         form_layout.addLayout(end_date_layout, stretch=1)
 
         layout.addLayout(form_layout)
+        
+        self._period_warning = QLabel("Las semanas del temario se calculan desde el inicio global del período académico.")
+        self._period_warning.setStyleSheet("color: #FF9800; font-weight: bold; font-size: 12px;")
+        self._period_warning.setWordWrap(True)
+        self._period_warning.setVisible(False)
+        layout.addWidget(self._period_warning)
 
         # Schedules Section
         layout.addWidget(QLabel("Horarios de Cursada:"))
@@ -132,6 +144,14 @@ class SubjectDialog(QDialog):
         btn_layout.addWidget(save_btn)
 
         layout.addLayout(btn_layout)
+
+    def _update_period_warning(self):
+        if not self._academic_period:
+            return
+        if self._start_date_edit.date().toString(Qt.DateFormat.ISODate) != self._academic_period.start_date:
+            self._period_warning.setVisible(True)
+        else:
+            self._period_warning.setVisible(False)
 
     def _load_data(self):
         self._name_edit.setText(self._subject_data.get("name", ""))

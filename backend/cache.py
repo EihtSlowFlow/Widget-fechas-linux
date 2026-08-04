@@ -27,9 +27,10 @@ from backend.config import (
     COMPLETED_EVENTS_FILE,
     MANUAL_EVENTS_FILE,
     SUBJECTS_FILE,
+    ACADEMIC_PERIOD_FILE,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus
+from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus, AcademicPeriod
 
 logger = logging.getLogger("fechas.cache")
 
@@ -392,3 +393,23 @@ def write_subjects(subjects: list[SubjectSyllabus]) -> None:
     """Escribe las materias de forma atómica."""
     ensure_dirs()
     _atomic_write_json(SUBJECTS_FILE, [s.to_dict() for s in subjects])
+
+
+# ─── Periodo Académico (academic_period.json) ─────────────────────
+
+def read_academic_period() -> AcademicPeriod | None:
+    """Lee el periodo académico."""
+    ensure_dirs()
+    data = _read_json(ACADEMIC_PERIOD_FILE, default={})
+    if not data:
+        return None
+    try:
+        return AcademicPeriod.from_dict(data)
+    except Exception as e:
+        logger.warning("Error leyendo periodo académico: %s", e)
+        return None
+
+def write_academic_period(period: AcademicPeriod) -> None:
+    """Escribe el periodo académico de forma atómica."""
+    ensure_dirs()
+    _atomic_write_json(ACADEMIC_PERIOD_FILE, period.to_dict())

@@ -12,8 +12,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from backend.cache import read_subjects, write_subjects
-from backend.models import SubjectSyllabus, SyllabusEntry
+from backend.cache import read_subjects, write_subjects, read_academic_period
+from backend.models import SubjectSyllabus
 from app.styles.theme import DARK_PALETTE
 
 
@@ -21,10 +21,12 @@ class SubjectsView(QWidget):
     """Vista para gestionar materias y sus temarios."""
 
     subjects_changed = pyqtSignal()
+    academic_period_changed = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._subjects: list[SubjectSyllabus] = []
+        self._academic_period = None
         self._setup_ui()
         self.reload_subjects()
 
@@ -33,9 +35,25 @@ class SubjectsView(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        # Header
+        # Período académico header
+        period_header = QHBoxLayout()
+        period_title = QLabel("Período Académico")
+        period_title.setObjectName("sectionTitle")
+        period_header.addWidget(period_title)
+        period_header.addStretch()
+        
+        self._config_period_btn = QPushButton("Configurar Período")
+        self._config_period_btn.clicked.connect(self._config_period)
+        period_header.addWidget(self._config_period_btn)
+        layout.addLayout(period_header)
+        
+        self._period_info = QLabel("Cargando...")
+        self._period_info.setStyleSheet(f"color: {DARK_PALETTE['text_secondary']};")
+        layout.addWidget(self._period_info)
+        
+        # Header Materias
         header = QHBoxLayout()
-        title = QLabel("Materias (Semana de cursada)")
+        title = QLabel("Materias")
         title.setObjectName("sectionTitle")
         header.addWidget(title)
         header.addStretch()
@@ -101,7 +119,18 @@ class SubjectsView(QWidget):
         layout.addWidget(self._detail_frame)
 
     def reload_subjects(self):
-        """Recarga las materias desde disco."""
+        """Recarga las materias y el período desde disco."""
+        try:
+            self._academic_period = read_academic_period()
+        except Exception:
+            self._academic_period = None
+            
+        if self._academic_period:
+            end_str = f" al {self._academic_period.end_date}" if self._academic_period.end_date else ""
+            self._period_info.setText(f"{self._academic_period.name} ({self._academic_period.start_date}{end_str})")
+        else:
+            self._period_info.setText("Sin configurar.")
+
         self._subjects = read_subjects()
         self._list.clear()
         for s in self._subjects:
@@ -168,7 +197,7 @@ class SubjectsView(QWidget):
 
     def _add_subject(self):
         from app.dialogs.subject_dialog import SubjectDialog
-        dialog = SubjectDialog(self)
+        dialog = SubjectDialog(self, academic_period=self._academic_period)
         if dialog.exec():
             data = dialog.get_subject_data()
             new_subject = SubjectSyllabus.from_dict(data)
@@ -184,7 +213,7 @@ class SubjectsView(QWidget):
         s = self._subjects[row]
         
         from app.dialogs.subject_dialog import SubjectDialog
-        dialog = SubjectDialog(self, subject_data=s.to_dict())
+        dialog = SubjectDialog(self, subject_data=s.to_dict(), academic_period=self._academic_period)
         if dialog.exec():
             data = dialog.get_subject_data()
             self._subjects[row] = SubjectSyllabus.from_dict(data)
@@ -192,3 +221,15 @@ class SubjectsView(QWidget):
             self.reload_subjects()
             self._list.setCurrentRow(row)
             self.subjects_changed.emit()
+
+    def _config_period(self):
+        from app.dialogs.academic_period_dialog import AcademicPeriodDialog
+        from backend.cache import write_academic_period
+        from backend.models import AcademicPeriod
+        
+        dialog = AcademicPeriodDialog(period=self._academic_period, parent=self)
+        if dialog.exec():
+            new_period = AcademicPeriod.from_dict(dialog.period_data)
+            write_academic_period(new_period)
+            self.reload_subjects()
+            self.academic_period_changed.emit()

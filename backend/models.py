@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Optional
 import re
 
@@ -341,4 +341,39 @@ class CacheData:
             current_subjects=data.get("current_subjects", []),
             weekly_schedule=data.get("weekly_schedule", []),
         )
+
+@dataclass
+class AcademicPeriod:
+    """Representa un periodo académico."""
+    name: str
+    start_date: str
+    end_date: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AcademicPeriod":
+        name = str(data.get("name", "")).strip()
+        if not name:
+            raise ValueError("Nombre de periodo vacío")
+        
+        start_date = str(data.get("start_date", "")).strip()
+        d_start = date.fromisoformat(start_date)
+        if d_start.weekday() != 0:
+            raise ValueError("start_date debe ser Lunes (weekday 0)")
+
+        end_date = str(data.get("end_date", "")).strip()
+        if end_date:
+            d_end = date.fromisoformat(end_date)
+            if d_end < d_start:
+                raise ValueError("end_date debe ser mayor o igual a start_date")
+
+        return cls(name=name, start_date=start_date, end_date=end_date)
+
+    @property
+    def effective_end_date(self) -> date:
+        if self.end_date:
+            return date.fromisoformat(self.end_date)
+        return date.fromisoformat(self.start_date) + timedelta(weeks=16) - timedelta(days=1)
 

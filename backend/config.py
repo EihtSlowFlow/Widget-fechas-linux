@@ -24,6 +24,7 @@ COMPLETED_EVENTS_FILE = DATA_DIR / "completed_events.json"
 SOURCES_FILE = CONFIG_DIR / "sources.json"
 MANUAL_EVENTS_FILE = CONFIG_DIR / "manual_events.json"
 SUBJECTS_FILE = CONFIG_DIR / "subjects.json"
+ACADEMIC_PERIOD_FILE = CONFIG_DIR / "academic_period.json"
 SYNC_LOCK_FILE = DATA_DIR / "sync.lock"
 
 # Directorio del proyecto (para referencia)

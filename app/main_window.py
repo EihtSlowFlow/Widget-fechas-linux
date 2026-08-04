@@ -18,7 +18,7 @@ from PyQt6.QtGui import QIcon, QFont
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.config import CACHE_FILE, ensure_dirs
-from backend.cache import read_cache, update_manual_event
+from backend.cache import read_cache, update_manual_event, read_academic_period, read_subjects
 from app.styles.theme import DARK_PALETTE, get_urgency_style
 from app.views.timeline_view import TimelineView
 from app.views.calendar_view import CalendarView
@@ -40,6 +40,8 @@ class MainWindow(QMainWindow):
         self._pending_full_sync = False
         self._pending_source_ids = set()
         self._active_sync_source_id = None
+        self._academic_period = None
+        self._subjects = []
         self._setup_ui()
         self._load_data()
         self._start_auto_refresh()
@@ -103,6 +105,7 @@ class MainWindow(QMainWindow):
 
         self._subjects_view = SubjectsView()
         self._subjects_view.subjects_changed.connect(self._on_source_changed)
+        self._subjects_view.academic_period_changed.connect(self._on_source_changed)
         self._tabs.addTab(self._subjects_view, "📚 Materias")
 
         self._sources_view = SourcesView()
@@ -133,10 +136,20 @@ class MainWindow(QMainWindow):
         ensure_dirs()
         cache = read_cache()
         self._events = cache.events
+        
+        try:
+            self._academic_period = read_academic_period()
+        except Exception:
+            self._academic_period = None
+            
+        try:
+            self._subjects = read_subjects()
+        except Exception:
+            self._subjects = []
 
         # Update views
         self._timeline_view.set_events(self._events)
-        self._calendar_view.set_events(self._events)
+        self._calendar_view.set_data(self._events, self._subjects, self._academic_period)
 
         # Update status bar
         self._status_count.setText(f"📊 {len(self._events)} eventos")
