@@ -56,8 +56,8 @@ class CalendarView(QWidget):
 
         self._calendar = AcademicCalendarWidget()
         self._calendar.setMinimumHeight(320)
-        self._calendar.dateClicked.connect(self._on_date_clicked)
-        self._calendar.weekClicked.connect(self._on_week_clicked)
+        self._calendar.date_clicked.connect(self._on_date_clicked)
+        self._calendar.week_clicked.connect(self._on_week_clicked)
         cal_col.addWidget(self._calendar, stretch=1)
 
         # Legend
@@ -137,37 +137,7 @@ class CalendarView(QWidget):
 
         # Configurar calendario custom
         self._calendar.set_academic_period(self._academic_period)
-
-        default_fmt = QTextCharFormat()
-        self._calendar.setDateTextFormat(QDate(), default_fmt)
-
-        for e in events:
-            try:
-                dt = datetime.fromisoformat(e.get("due_date", ""))
-                date_key = dt.strftime("%Y-%m-%d")
-
-                if date_key not in self._events_by_date:
-                    self._events_by_date[date_key] = []
-                self._events_by_date[date_key].append(e)
-            except (ValueError, TypeError):
-                continue
-                
-        for date_key, day_events in self._events_by_date.items():
-            dt = datetime.fromisoformat(day_events[0].get("due_date", ""))
-            qdate = QDate(dt.year, dt.month, dt.day)
-
-            urgency = highest_incomplete_urgency(day_events)
-            if urgency:
-                color = QColor(get_urgency_style(urgency))
-                fmt = QTextCharFormat()
-                fmt.setBackground(QColor(color.red(), color.green(), color.blue(), 80))
-                fmt.setForeground(QColor("white"))
-                fmt.setFontWeight(QFont.Weight.Bold)
-                self._calendar.setDateTextFormat(qdate, fmt)
-            else:
-                fmt = QTextCharFormat()
-                fmt.setBackground(QColor(128, 128, 128, 40))
-                self._calendar.setDateTextFormat(qdate, fmt)
+        self._calendar.set_events(events)
 
         if not self._selected_monday:
             today = date.today()
@@ -188,19 +158,19 @@ class CalendarView(QWidget):
     def _on_prev_week(self):
         if self._selected_monday:
             self._selected_monday -= timedelta(weeks=1)
-            self._calendar.setSelectedDate(QDate(self._selected_monday.year, self._selected_monday.month, self._selected_monday.day))
+            self._calendar.set_selected_date(self._selected_monday)
             self._render_detail_panel(self._selected_monday)
 
     def _on_next_week(self):
         if self._selected_monday:
             self._selected_monday += timedelta(weeks=1)
-            self._calendar.setSelectedDate(QDate(self._selected_monday.year, self._selected_monday.month, self._selected_monday.day))
+            self._calendar.set_selected_date(self._selected_monday)
             self._render_detail_panel(self._selected_monday)
 
     def _on_curr_week(self):
         today = date.today()
         self._selected_monday = today - timedelta(days=today.weekday())
-        self._calendar.setSelectedDate(QDate(self._selected_monday.year, self._selected_monday.month, self._selected_monday.day))
+        self._calendar.set_selected_date(self._selected_monday)
         self._render_detail_panel(self._selected_monday)
 
     def _clear_detail_layout(self):
@@ -261,7 +231,7 @@ class CalendarView(QWidget):
                 insert_idx += 1
             else:
                 for subj in subjects_data:
-                    title = QLabel(subj["name"])
+                    title = QLabel(subj["subject_name"])
                     title.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 8px;")
                     self._detail_layout.insertWidget(insert_idx, title)
                     insert_idx += 1
@@ -279,7 +249,7 @@ class CalendarView(QWidget):
                             insert_idx += 1
                             
                             if u["contents"]:
-                                contents = "\\n".join(f"• {c}" for c in u["contents"])
+                                contents = "\n".join(f"• {c}" for c in u["contents"])
                                 c_lbl = QLabel(contents)
                                 c_lbl.setWordWrap(True)
                                 self._detail_layout.insertWidget(insert_idx, c_lbl)
@@ -311,24 +281,41 @@ class CalendarView(QWidget):
             self._detail_layout.insertWidget(insert_idx, msg)
             insert_idx += 1
         else:
-            # Group by day within the week
+            # Group by effective display date within the week
             events_by_day = {}
             for e in week_events:
                 try:
-                    dt = datetime.fromisoformat(e.get("due_date", "")).date()
-                    if dt not in events_by_day:
-                        events_by_day[dt] = []
-                    events_by_day[dt].append(e)
+                    due_dt = datetime.fromisoformat(e.get("due_date", "")).date()
+                    start_str = e.get("start_date", "")
+                    if start_str:
+                        start_dt = datetime.fromisoformat(start_str).date()
+                    else:
+                        start_dt = due_dt
+                        
+                    display_date = max(start_dt, monday)
+                    if display_date not in events_by_day:
+                        events_by_day[display_date] = []
+                    events_by_day[display_date].append((e, start_dt, due_dt))
                 except Exception:
                     pass
             
+            dias_es = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
+            meses_es = {1: "ene", 2: "feb", 3: "mar", 4: "abr", 5: "may", 6: "jun", 7: "jul", 8: "ago", 9: "sep", 10: "oct", 11: "nov", 12: "dic"}
+            
             for dt in sorted(events_by_day.keys()):
-                d_lbl = QLabel(dt.strftime("%A %d").capitalize())
+                d_lbl = QLabel(f"{dias_es[dt.weekday()]} {dt.day}")
                 d_lbl.setStyleSheet(f"font-weight: bold; color: {DARK_PALETTE['text_primary']}; margin-top: 6px;")
                 self._detail_layout.insertWidget(insert_idx, d_lbl)
                 insert_idx += 1
                 
-                for e in events_by_day[dt]:
+                for e, start_dt, due_dt in events_by_day[dt]:
+                    if start_dt != due_dt:
+                        range_str = f"Rango: {start_dt.day}/{start_dt.month:02d} al {due_dt.day}/{due_dt.month:02d}"
+                        range_lbl = QLabel(range_str)
+                        range_lbl.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-style: italic; font-size: 11px;")
+                        self._detail_layout.insertWidget(insert_idx, range_lbl)
+                        insert_idx += 1
+                        
                     card = EventCard(e)
                     card.edit_requested.connect(self.event_edit_requested.emit)
                     card.completion_toggled.connect(self._on_completion_toggled)

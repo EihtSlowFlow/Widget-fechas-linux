@@ -354,7 +354,11 @@ class AcademicPeriod:
 
     @classmethod
     def from_dict(cls, data: dict) -> "AcademicPeriod":
-        name = str(data.get("name", "")).strip()
+        raw_name = data.get("name")
+        if not isinstance(raw_name, str):
+            raise ValueError("Nombre de periodo inválido")
+            
+        name = raw_name.strip()
         if not name:
             raise ValueError("Nombre de periodo vacío")
         

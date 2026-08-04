@@ -23,6 +23,8 @@ def academic_week_range(week_number: int, period: AcademicPeriod) -> tuple[date,
     if week_number < 1:
         return None
     start = date.fromisoformat(period.start_date) + timedelta(weeks=week_number - 1)
+    if start > period.effective_end_date:
+        return None
     end = start + timedelta(days=6)
     return (start, end)
 
