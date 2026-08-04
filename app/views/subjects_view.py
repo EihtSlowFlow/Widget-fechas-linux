@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.cache import read_subjects, write_subjects
-from backend.models import SubjectSyllabus, SyllabusEntry
+from backend.models import SubjectSyllabus
 from app.styles.theme import DARK_PALETTE
 
 
