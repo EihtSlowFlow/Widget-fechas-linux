@@ -76,9 +76,16 @@ PlasmoidItem {
         }
     }
 
+    function shellQuote(value) {
+        return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
+    }
+
     function openMainApp() {
         if (installDir) {
-            appLauncher.connectSource("python3 " + installDir + "/app/main.py &");
+            var appPath = installDir + "/app/main.py";
+            appLauncher.connectSource(
+                "nohup python3 " + shellQuote(appPath) + " >/dev/null 2>&1 &"
+            );
         }
     }
 

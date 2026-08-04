@@ -303,6 +303,7 @@ Item {
 
             PlasmaComponents.ToolButton {
                 icon.name: "configure"
+                enabled: root.installDir.length > 0
                 PlasmaComponents.ToolTip { text: "Abrir Centro de Gestión" }
                 onClicked: root.openMainApp()
             }
