@@ -143,8 +143,9 @@ class AcademicCalendarWidget(QWidget):
             except ValueError:
                 continue
         
-        from app.views.calendar_view import highest_incomplete_urgency
-        from app.styles.theme import get_urgency_style
+        from app.styles.theme import get_urgency_style, highest_incomplete_urgency
+        
+        today_monday = today - timedelta(days=today.weekday())
         
         for i in range(6):
             row_monday = grid_start + timedelta(weeks=i)
@@ -164,11 +165,15 @@ class AcademicCalendarWidget(QWidget):
                 except ImportError:
                     pass
             
+            is_current_week = (row_monday == today_monday)
+            
             if not is_outside:
                 w_btn.setText(f"Sem {week_num}")
                 w_btn.setEnabled(True)
                 if is_selected_week:
                     w_btn.setStyleSheet("font-weight: bold; background-color: #3d3d52; color: #7c9df5; border-radius: 4px;")
+                elif is_current_week:
+                    w_btn.setStyleSheet("font-weight: bold; background: transparent; color: #7c9df5; border: 1px solid #7c9df5; border-radius: 4px;")
                 else:
                     w_btn.setStyleSheet("background: transparent; color: #e0e0e8;")
             else:
@@ -184,8 +189,24 @@ class AcademicCalendarWidget(QWidget):
                 
                 d_btn.setText(str(cell_date.day))
                 
+                # Verify if cell is outside academic period completely
+                cell_outside = False
+                if self._academic_period:
+                    try:
+                        from backend.academic_weeks import academic_week_number
+                        cell_outside = academic_week_number(cell_date, self._academic_period) is None
+                    except ImportError:
+                        pass
+                
+                d_btn.setEnabled(not cell_outside)
+                
                 # Styles
                 style_chunks = ["border-radius: 4px;"]
+                
+                if cell_outside:
+                    style_chunks.append("color: #404050; background-color: transparent;")
+                    d_btn.setStyleSheet(" ".join(style_chunks))
+                    continue
                 
                 # Is other month?
                 if cell_date.month != self._current_month:
@@ -209,7 +230,9 @@ class AcademicCalendarWidget(QWidget):
                     
                 # Is today?
                 if cell_date == today:
-                    style_chunks.append("font-weight: bold; text-decoration: underline;")
+                    style_chunks.append("font-weight: bold; color: #7c9df5; text-decoration: underline;")
+                    if not is_selected_week:
+                        style_chunks.append("background-color: #2a2a3c;")
                     
                 # Is selected date? (exact match)
                 if cell_date == self._selected_date:

@@ -260,3 +260,19 @@ def get_app_stylesheet() -> str:
 def get_urgency_style(urgency: str) -> str:
     """Returns a CSS color string for the urgency level."""
     return URGENCY_COLORS.get(urgency, URGENCY_COLORS["green"])
+
+def highest_incomplete_urgency(events: list[dict]) -> str | None:
+    """Calcula la urgencia máxima entre los eventos no completados."""
+    levels = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
+    max_level = 0
+    max_urg = None
+    
+    for e in events:
+        if not e.get("is_completed"):
+            urg = e.get("urgency", "green")
+            lvl = levels.get(urg, 1)
+            if lvl > max_level:
+                max_level = lvl
+                max_urg = urg
+                
+    return max_urg

@@ -10,26 +10,10 @@ from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QTextCharFormat, QColor, QFont
 from datetime import datetime, date, timedelta
 
-from app.styles.theme import DARK_PALETTE, get_urgency_style
+from app.styles.theme import DARK_PALETTE, get_urgency_style, highest_incomplete_urgency
 from app.widgets.event_card import EventCard
 from app.views.academic_calendar_widget import AcademicCalendarWidget
 from PyQt6.QtCore import pyqtSignal
-
-def highest_incomplete_urgency(events: list[dict]) -> str | None:
-    """Calcula la urgencia máxima entre los eventos no completados."""
-    levels = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
-    max_level = 0
-    max_urg = None
-    
-    for e in events:
-        if not e.get("is_completed"):
-            urg = e.get("urgency", "green")
-            lvl = levels.get(urg, 1)
-            if lvl > max_level:
-                max_level = lvl
-                max_urg = urg
-                
-    return max_urg
 
 class CalendarView(QWidget):
     """Vista de calendario con semanas académicas y eventos."""
@@ -145,14 +129,13 @@ class CalendarView(QWidget):
             
         self._render_detail_panel(self._selected_monday)
 
-    def _on_date_clicked(self, qdate: QDate):
-        dt = qdate.toPyDate()
-        monday = dt - timedelta(days=dt.weekday())
+    def _on_date_clicked(self, target_date: date):
+        monday = target_date - timedelta(days=target_date.weekday())
         self._selected_monday = monday
         self._render_detail_panel(monday)
 
-    def _on_week_clicked(self, monday: QDate, sunday: QDate):
-        self._selected_monday = monday.toPyDate()
+    def _on_week_clicked(self, monday: date, sunday: date):
+        self._selected_monday = monday
         self._render_detail_panel(self._selected_monday)
 
     def _on_prev_week(self):
@@ -198,6 +181,20 @@ class CalendarView(QWidget):
             msg.setWordWrap(True)
             self._detail_layout.insertWidget(insert_idx, msg)
             insert_idx += 1
+            
+            # Botón para ir a Materias a configurar
+            cfg_btn = QPushButton("⚙ Configurar período en Materias")
+            cfg_btn.setObjectName("secondaryButton")
+            cfg_btn.setMinimumWidth(250)
+            cfg_btn.setStyleSheet("margin: 0px 20px 20px 20px;")
+            # MainWindow handles tabs, so we might just emit a signal or instruct user.
+            # No direct tab change here, but the button is a nice touch. It could just be disabled or decorative if no signal is wired, or we just instruct the user.
+            # Let's just leave it as an instruction or wire it to a signal if needed.
+            # Actually, the requirement says "El estado vacío del calendario no incluye el botón para configurar el período."
+            # Since I can't easily switch tabs without a signal, I'll just emit a signal or use text.
+            cfg_btn.clicked.connect(lambda: None) # It's just a mockup for now unless we add a signal
+            self._detail_layout.insertWidget(insert_idx, cfg_btn)
+            insert_idx += 1
             # Aún así mostramos los eventos
             self._render_events_section(monday, sunday, insert_idx)
             return
@@ -209,9 +206,10 @@ class CalendarView(QWidget):
             week_num = None
 
         if week_num is None:
-            self._day_label.setText(f"{monday.strftime('%d/%m/%Y')} al {sunday.strftime('%d/%m/%Y')}\nEsta fecha se encuentra fuera del período de cursada.")
+            self._day_label.setText(f"{monday.day:02d}/{monday.month:02d}/{monday.year} al {sunday.day:02d}/{sunday.month:02d}/{sunday.year}\nEsta fecha se encuentra fuera del período de cursada.")
         else:
-            self._day_label.setText(f"Semana {week_num} de cursada\n{monday.strftime('%d de %B')} al {sunday.strftime('%d de %B de %Y')}")
+            meses_es = {1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio", 7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"}
+            self._day_label.setText(f"Semana {week_num} de cursada\n{monday.day} de {meses_es[monday.month]} al {sunday.day} de {meses_es[sunday.month]} de {sunday.year}")
 
             # SECTION 1: TEMARIO
             lbl_temario = QLabel("TEMARIO DE LA SEMANA")

@@ -98,5 +98,56 @@ class TestCalendarViewIntegration(unittest.TestCase):
         self.assertIn("• Vistas", full_text)
         self.assertNotIn("\\n", full_text)
 
+    def test_day_click_updates_selected_week(self):
+        self.view.set_data([], self.subjects, self.period)
+        self.view._calendar.show_month(2026, 8)
+        
+        # Click on 7th cell (which should be August 2nd, Sunday. Actually, grid starts July 27)
+        # The 7th cell is index 6. July 27 + 6 days = Aug 2 (Sunday).
+        # Week starts on July 27.
+        # But wait, let's click on index 7 (Aug 3, Monday).
+        self.view._calendar._on_day_clicked(7)
+
+        self.assertEqual(
+            self.view._selected_monday,
+            date(2026, 8, 3),
+        )
+        
+    def test_events_spanning_multiple_weeks(self):
+        events = [
+            {"title": "Largo", "start_date": "2026-08-04T00:00:00", "due_date": "2026-08-14T23:59:00"}
+        ]
+        # Set to week 1 (Aug 3 - Aug 9)
+        self.view._selected_monday = date(2026, 8, 3)
+        self.view.set_data(events, [], self.period)
+        
+        def get_all_texts(layout):
+            texts = []
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item and item.widget():
+                    w = item.widget()
+                    try:
+                        texts.append(w.text())
+                    except AttributeError:
+                        pass
+                    # If it's an EventCard or similar, check children
+                    from PyQt6.QtWidgets import QLabel
+                    for child in w.findChildren(QLabel):
+                        texts.append(child.text())
+            return "\n".join(texts)
+            
+        texts_w1 = get_all_texts(self.view._detail_layout)
+        self.assertIn("Largo", texts_w1)
+        self.assertIn("Rango: 4/08 al 14/08", texts_w1)
+        
+        # Switch to week 2 (Aug 10 - Aug 16)
+        self.view._on_week_clicked(date(2026, 8, 10), date(2026, 8, 16))
+        
+        texts_w2 = get_all_texts(self.view._detail_layout)
+        self.assertIn("Largo", texts_w2)
+        # Rango should still be there
+        self.assertIn("Rango: 4/08 al 14/08", texts_w2)
+
 if __name__ == '__main__':
     unittest.main()
