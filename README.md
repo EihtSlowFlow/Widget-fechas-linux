@@ -50,14 +50,15 @@ Sistema integral de seguimiento temporal y cuenta regresiva para el escritorio K
 ### Requisitos
 - **KDE Plasma 6** (Kubuntu 24.04+, KDE Neon, etc.)
 - **Python 3.10+**
-- **PyQt6** (`sudo apt install python3-pyqt6` o `pip3 install PyQt6`)
 - Conexión a internet para sincronización
+
+> ℹ **Nota**: Todas las dependencias de Python (incluyendo PyQt6) son instaladas automáticamente por `install.sh`.
 
 ### Instalar
 
 ```bash
-git clone https://github.com/tu-usuario/fechas-academicas.git
-cd fechas-academicas
+git clone https://github.com/EihtSlowFlow/Widget-fechas-linux.git
+cd Widget-fechas-linux
 chmod +x install.sh
 ./install.sh
 ```

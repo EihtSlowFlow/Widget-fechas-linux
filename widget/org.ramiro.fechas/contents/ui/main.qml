@@ -83,8 +83,9 @@ PlasmoidItem {
     function openMainApp() {
         if (installDir) {
             var appPath = installDir + "/app/main.py";
+            var logPath = userHome + "/.local/share/fechas-academicas/app-launch.log";
             appLauncher.connectSource(
-                "nohup python3 " + shellQuote(appPath) + " >/dev/null 2>&1 &"
+                "nohup python3 " + shellQuote(appPath) + " >>" + shellQuote(logPath) + " 2>&1 &"
             );
         }
     }
