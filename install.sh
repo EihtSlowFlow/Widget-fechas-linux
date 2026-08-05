@@ -65,7 +65,14 @@ import requests
     echo "   ✓ Todas las dependencias verificadas correctamente"
 else
     echo "   ✗ ERROR: Algunas dependencias no pudieron importarse."
-    echo "     Ejecutá 'python3 -c \"import PyQt6\"' para diagnosticar."
+    echo "     Para identificar cuál falta, probá cada una individualmente:"
+    echo "       python3 -c 'import PyQt6'"
+    echo "       python3 -c 'import icalendar'"
+    echo "       python3 -c 'import recurring_ical_events'"
+    echo "       python3 -c 'import dateutil'"
+    echo "       python3 -c 'import bs4'"
+    echo "       python3 -c 'import lxml'"
+    echo "       python3 -c 'import requests'"
     exit 1
 fi
 

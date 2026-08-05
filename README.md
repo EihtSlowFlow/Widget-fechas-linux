@@ -109,6 +109,33 @@ python3 backend/fechas_sync.py          # Sync normal
 python3 backend/fechas_sync.py --dry-run # Solo mostrar sin escribir
 ```
 
+## 🔧 Solución de problemas
+
+### El Centro de Gestión no abre desde el widget
+
+Si el botón del widget parece no responder, revisá el log de lanzamiento:
+
+```bash
+cat ~/.local/share/fechas-academicas/app-launch.log
+```
+
+Ahí se registran los errores de importación y excepciones de la aplicación.
+
+### Verificar dependencias manualmente
+
+```bash
+python3 -c "
+import PyQt6
+import icalendar
+import recurring_ical_events
+import dateutil
+import bs4
+import lxml
+import requests
+print('Todas las dependencias OK')
+"
+```
+
 ## 📡 Fuentes de datos
 
 | Fuente | Tipo | Descripción |
