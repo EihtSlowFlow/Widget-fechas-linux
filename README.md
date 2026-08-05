@@ -50,14 +50,15 @@ Sistema integral de seguimiento temporal y cuenta regresiva para el escritorio K
 ### Requisitos
 - **KDE Plasma 6** (Kubuntu 24.04+, KDE Neon, etc.)
 - **Python 3.10+**
-- **PyQt6** (`sudo apt install python3-pyqt6` o `pip3 install PyQt6`)
 - Conexión a internet para sincronización
+
+> ℹ **Nota**: Todas las dependencias de Python (incluyendo PyQt6) son instaladas automáticamente por `install.sh`.
 
 ### Instalar
 
 ```bash
-git clone https://github.com/tu-usuario/fechas-academicas.git
-cd fechas-academicas
+git clone https://github.com/EihtSlowFlow/Widget-fechas-linux.git
+cd Widget-fechas-linux
 chmod +x install.sh
 ./install.sh
 ```
@@ -106,6 +107,33 @@ python3 app/main.py --add-event  # Crear evento directamente
 ```bash
 python3 backend/fechas_sync.py          # Sync normal
 python3 backend/fechas_sync.py --dry-run # Solo mostrar sin escribir
+```
+
+## 🔧 Solución de problemas
+
+### El Centro de Gestión no abre desde el widget
+
+Si el botón del widget parece no responder, revisá el log de lanzamiento:
+
+```bash
+cat ~/.local/share/fechas-academicas/app-launch.log
+```
+
+Ahí se registran los errores de importación y excepciones de la aplicación.
+
+### Verificar dependencias manualmente
+
+```bash
+python3 -c "
+import PyQt6
+import icalendar
+import recurring_ical_events
+import dateutil
+import bs4
+import lxml
+import requests
+print('Todas las dependencias OK')
+"
 ```
 
 ## 📡 Fuentes de datos

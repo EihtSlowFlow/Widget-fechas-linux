@@ -22,23 +22,59 @@ echo "📦 [1/6] Instalando dependencias Python..."
 if command -v apt-get &> /dev/null; then
     echo "   → Detectado sistema basado en Debian/Ubuntu. Usando apt para instalar paquetes del sistema..."
     sudo apt-get update
-    sudo apt-get install -y python3-icalendar python3-recurring-ical-events python3-dateutil python3-bs4 python3-lxml python3-requests
+    sudo apt-get install -y \
+        python3-pyqt6 \
+        python3-icalendar \
+        python3-recurring-ical-events \
+        python3-dateutil \
+        python3-bs4 \
+        python3-lxml \
+        python3-requests
 else
     echo "   → Usando pip3 para instalar dependencias..."
     pip3 install --user --break-system-packages \
-        icalendar>=6.0.0 \
-        recurring-ical-events>=3.0.0 \
-        python-dateutil>=2.9.0 \
-        beautifulsoup4>=4.12.0 \
-        lxml>=5.0.0 \
+        "PyQt6>=6.5" \
+        "icalendar>=6.0.0" \
+        "recurring-ical-events>=3.0.0" \
+        "python-dateutil>=2.9.0" \
+        "beautifulsoup4>=4.12.0" \
+        "lxml>=5.0.0" \
+        "requests>=2.31.0" \
         2>/dev/null || pip3 install --user \
-        icalendar>=6.0.0 \
-        recurring-ical-events>=3.0.0 \
-        python-dateutil>=2.9.0 \
-        beautifulsoup4>=4.12.0 \
-        lxml>=5.0.0
+        "PyQt6>=6.5" \
+        "icalendar>=6.0.0" \
+        "recurring-ical-events>=3.0.0" \
+        "python-dateutil>=2.9.0" \
+        "beautifulsoup4>=4.12.0" \
+        "lxml>=5.0.0" \
+        "requests>=2.31.0"
 fi
-echo "   ✓ Dependencias instaladas"
+echo "   ✓ Paquetes instalados"
+
+# Verificar que todos los imports funcionen
+echo "   → Verificando imports de Python..."
+if PYTHONPATH="$SCRIPT_DIR" python3 -c "
+import PyQt6
+import icalendar
+import recurring_ical_events
+import dateutil
+import bs4
+import lxml
+import requests
+"; then
+    echo "   ✓ Todas las dependencias verificadas correctamente"
+else
+    echo "   ✗ ERROR: Algunas dependencias no pudieron importarse."
+    echo "     Para identificar cuál falta, probá cada una individualmente:"
+    echo "       python3 -c 'import PyQt6'"
+    echo "       python3 -c 'import icalendar'"
+    echo "       python3 -c 'import recurring_ical_events'"
+    echo "       python3 -c 'import dateutil'"
+    echo "       python3 -c 'import bs4'"
+    echo "       python3 -c 'import lxml'"
+    echo "       python3 -c 'import requests'"
+    exit 1
+fi
 
 # ─── 2. Directorios de datos ─────────────────────────────
 echo "📁 [2/6] Creando directorios de datos..."
