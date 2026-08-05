@@ -22,7 +22,14 @@ echo "📦 [1/6] Instalando dependencias Python..."
 if command -v apt-get &> /dev/null; then
     echo "   → Detectado sistema basado en Debian/Ubuntu. Usando apt para instalar paquetes del sistema..."
     sudo apt-get update
-    sudo apt-get install -y python3-icalendar python3-recurring-ical-events python3-dateutil python3-bs4 python3-lxml python3-requests
+    sudo apt-get install -y \
+        python3-pyqt6 \
+        python3-icalendar \
+        python3-recurring-ical-events \
+        python3-dateutil \
+        python3-bs4 \
+        python3-lxml \
+        python3-requests
 else
     echo "   → Usando pip3 para instalar dependencias..."
     pip3 install --user --break-system-packages \
