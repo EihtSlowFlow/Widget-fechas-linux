@@ -60,6 +60,22 @@ Item {
             font.bold: true
             color: Kirigami.Theme.highlightColor
         }
+
+        PlasmaComponents.Label {
+            visible: root.todayWeather !== null && root.returnWeather !== null && root.returnWeather.status === "upcoming"
+            anchors.right: parent.right
+            anchors.rightMargin: Kirigami.Units.smallSpacing * 2
+            anchors.verticalCenter: parent.verticalCenter
+            text: {
+                if (!root.todayWeather || !root.todayWeather.current || !root.returnWeather || root.returnWeather.status !== "upcoming") return "";
+                var currentTemp = Math.round(root.todayWeather.current.temperature);
+                var endTemp = Math.round(root.returnWeather.end_temperature);
+                return "🌤️ " + currentTemp + "° → 🌙 " + endTemp + "°";
+            }
+            font.pixelSize: Kirigami.Units.gridUnit * 0.55
+            font.bold: true
+            opacity: 0.8
+        }
     }
 
     // ─── Carousel ────────────────────────────────────────────

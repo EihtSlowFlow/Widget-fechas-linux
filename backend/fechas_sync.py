@@ -19,6 +19,7 @@ import logging
 import sys
 import fcntl
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # Agregar el directorio padre al path para imports
 from pathlib import Path
@@ -31,7 +32,7 @@ from backend.config import (
     SYNC_LOCK_FILE,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek, SubjectSyllabus
+from backend.models import AcademicEvent, CacheData, CurrentSubjectWeek, HourlyWeather, SubjectSyllabus
 from backend.cache import (
     init_default_sources,
     read_sources,
@@ -40,7 +41,13 @@ from backend.cache import (
     read_subjects,
     update_novelty,
     write_cache,
+    read_weather_settings,
+    read_weather_cache,
+    write_weather_cache,
+    is_weather_cache_valid,
+    weather_cache_matches_context,
 )
+from backend.weather import fetch_today_weather, calculate_return_weather
 
 logger = logging.getLogger("fechas.sync")
 
@@ -347,8 +354,66 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     subjects = read_subjects()
     current_subjects = process_subjects(subjects, today)
     weekly_schedule = generate_weekly_schedule(subjects, today)
-    
-    # 10. Construir cache y escribir bajo lock
+
+    # 10. Pronóstico meteorológico
+    today_weather_dict = None
+    return_weather_dict = None
+
+    try:
+        weather_settings = read_weather_settings()
+        if weather_settings.enabled and weather_settings.latitude is not None:
+            weather_zone = ZoneInfo(weather_settings.timezone)
+            weather_now = datetime.now(weather_zone)
+            weather_today = weather_now.date()
+            forecast_date = weather_today.isoformat()
+
+            # Bloque 1: Obtener pronóstico fresco o fallback válido
+            weather_cache = read_weather_cache()
+            if is_weather_cache_valid(weather_cache, weather_settings, forecast_date):
+                today_weather_dict = weather_cache["weather"]
+                logger.info("🌤️ Usando pronóstico meteorológico en caché")
+            else:
+                try:
+                    tw = fetch_today_weather(
+                        weather_settings.latitude,
+                        weather_settings.longitude,
+                        weather_settings.timezone,
+                    )
+                    tw.location_name = weather_settings.location_name
+                    today_weather_dict = tw.to_dict()
+                    write_weather_cache({
+                        "forecast_date": forecast_date,
+                        "latitude": weather_settings.latitude,
+                        "longitude": weather_settings.longitude,
+                        "timezone": weather_settings.timezone,
+                        "fetched_at": now_iso,
+                        "weather": today_weather_dict,
+                    })
+                    logger.info("🌤️ Pronóstico meteorológico actualizado desde Open-Meteo")
+                except Exception as e:
+                    logger.warning("Error consultando clima: %s", e)
+                    # Fallback: conservar dato si coincide fecha y ubicación
+                    if weather_cache_matches_context(
+                        weather_cache, weather_settings, forecast_date
+                    ):
+                        today_weather_dict = weather_cache["weather"]
+                        today_weather_dict["is_stale"] = True
+                        logger.info("🌤️ Usando pronóstico anterior (sin actualizar)")
+
+            # Bloque 2: Recalcular return_weather SIEMPRE
+            if today_weather_dict:
+                hourly = [
+                    HourlyWeather.from_dict(h)
+                    for h in today_weather_dict.get("hourly", [])
+                ]
+                return_weather_dict = calculate_return_weather(
+                    weekly_schedule, hourly, weather_now,
+                    weather_settings.return_trip_minutes,
+                )
+    except Exception as e:
+        logger.warning("Error meteorológico (no afecta sync académico): %s", e)
+
+    # 11. Construir cache y escribir bajo lock
     from backend.cache import apply_completed_status, cache_lock
     
     current_errors = [
@@ -372,6 +437,8 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                 events=event_dicts,
                 current_subjects=subject_dicts,
                 weekly_schedule=weekly_schedule,
+                today_weather=today_weather_dict,
+                return_weather=return_weather_dict,
             )
             write_cache(cache)
         write_sources(sources)
@@ -388,6 +455,8 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
             events=event_dicts,
             current_subjects=subject_dicts,
             weekly_schedule=weekly_schedule,
+            today_weather=today_weather_dict,
+            return_weather=return_weather_dict,
         )
         logger.info(
             "═══ DRY RUN: %d eventos procesados (no se escribió al disco) ═══",

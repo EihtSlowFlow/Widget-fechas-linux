@@ -15,6 +15,8 @@ PlasmoidItem {
     property var eventsModel: []
     property var subjectsModel: []
     property var weeklyScheduleModel: []
+    property var todayWeather: null
+    property var returnWeather: null
     property string lastSync: ""
     property string syncStatus: "pending"
     property string syncError: ""
@@ -51,6 +53,8 @@ PlasmoidItem {
                     root.eventCount = root.eventsModel.length;
                     root.subjectsModel = json.current_subjects || [];
                     root.weeklyScheduleModel = json.weekly_schedule || [];
+                    root.todayWeather = json.today_weather || null;
+                    root.returnWeather = json.return_weather || null;
                     console.log("[FechasAcadémicas] Loaded " + root.eventCount + " events, " + root.subjectsModel.length + " subjects, " + root.weeklyScheduleModel.length + " schedule entries");
                 } catch (e) {
                     console.log("[FechasAcadémicas] Error parsing cache: " + e);
