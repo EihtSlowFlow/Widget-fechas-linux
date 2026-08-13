@@ -316,6 +316,124 @@ class CurrentSubjectWeek:
 
 
 @dataclass
+class HourlyWeather:
+    """Representa un registro meteorológico horario."""
+    time: str                           # ISO 8601: "2026-08-13T15:00"
+    temperature: float
+    apparent_temperature: float
+    precipitation_probability: int | None = None
+    weather_code: int = 0
+    wind_speed: float | None = None
+    is_day: bool = True
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> HourlyWeather:
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered)
+
+
+@dataclass
+class TodayWeather:
+    """Pronóstico meteorológico del día actual."""
+    location_name: str = ""
+    timezone: str = ""
+    updated_at: str = ""
+    current: HourlyWeather | None = None
+    hourly: list[HourlyWeather] = field(default_factory=list)
+    is_stale: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "location_name": self.location_name,
+            "timezone": self.timezone,
+            "updated_at": self.updated_at,
+            "current": self.current.to_dict() if self.current else None,
+            "hourly": [h.to_dict() for h in self.hourly],
+            "is_stale": self.is_stale,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TodayWeather:
+        current_data = data.get("current")
+        current = HourlyWeather.from_dict(current_data) if current_data else None
+        hourly_data = data.get("hourly", [])
+        hourly = [HourlyWeather.from_dict(h) for h in hourly_data if isinstance(h, dict)]
+        return cls(
+            location_name=data.get("location_name", ""),
+            timezone=data.get("timezone", ""),
+            updated_at=data.get("updated_at", ""),
+            current=current,
+            hourly=hourly,
+            is_stale=data.get("is_stale", False),
+        )
+
+
+@dataclass
+class WeatherSettings:
+    """Configuración meteorológica del usuario."""
+    enabled: bool = False
+    location_name: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    timezone: str = ""
+    return_trip_minutes: int = 0
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> WeatherSettings:
+        """Crea una instancia validando los datos de entrada."""
+        enabled = bool(data.get("enabled", False))
+        location_name = str(data.get("location_name", "")).strip()[:200]
+
+        latitude = data.get("latitude")
+        if latitude is not None:
+            try:
+                latitude = float(latitude)
+                if not -90 <= latitude <= 90:
+                    raise ValueError(f"Latitud fuera de rango: {latitude}")
+            except (ValueError, TypeError):
+                latitude = None
+
+        longitude = data.get("longitude")
+        if longitude is not None:
+            try:
+                longitude = float(longitude)
+                if not -180 <= longitude <= 180:
+                    raise ValueError(f"Longitud fuera de rango: {longitude}")
+            except (ValueError, TypeError):
+                longitude = None
+
+        timezone_str = str(data.get("timezone", "")).strip()
+        if timezone_str:
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+            try:
+                ZoneInfo(timezone_str)
+            except (ZoneInfoNotFoundError, KeyError):
+                raise ValueError(f"Zona horaria inválida: {timezone_str}")
+
+        try:
+            return_trip_minutes = int(data.get("return_trip_minutes", 0))
+            return_trip_minutes = max(0, min(240, return_trip_minutes))
+        except (ValueError, TypeError):
+            return_trip_minutes = 0
+
+        return cls(
+            enabled=enabled,
+            location_name=location_name,
+            latitude=latitude,
+            longitude=longitude,
+            timezone=timezone_str,
+            return_trip_minutes=return_trip_minutes,
+        )
+
+
+@dataclass
 class CacheData:
     """Estructura completa del cache.json."""
 
@@ -325,6 +443,8 @@ class CacheData:
     events: list[dict] = field(default_factory=list)
     current_subjects: list[dict] = field(default_factory=list)
     weekly_schedule: list[dict] = field(default_factory=list)
+    today_weather: dict | None = None
+    return_weather: dict | None = None
 
     def to_dict(self) -> dict:
         """Convierte a diccionario para serialización JSON."""
@@ -340,6 +460,8 @@ class CacheData:
             events=data.get("events", []),
             current_subjects=data.get("current_subjects", []),
             weekly_schedule=data.get("weekly_schedule", []),
+            today_weather=data.get("today_weather"),
+            return_weather=data.get("return_weather"),
         )
 
 @dataclass

@@ -76,6 +76,17 @@ class TestAcademicWeeks(unittest.TestCase):
         # 16th week should be fine (ends June 28)
         self.assertIsNotNone(academic_week_range(16, self.period))
 
+    def test_academic_week_range_clamps_partial_final_week(self):
+        partial_period = AcademicPeriod(
+            name="Período parcial",
+            start_date="2026-03-09",
+            end_date="2026-03-18",
+        )
+        self.assertEqual(
+            academic_week_range(2, partial_period),
+            (date(2026, 3, 16), date(2026, 3, 18)),
+        )
+
     def test_subjects_for_academic_week(self):
         subjects = [
             SubjectSyllabus(

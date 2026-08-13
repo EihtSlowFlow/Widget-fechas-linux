@@ -3,7 +3,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import unittest
 from datetime import date, timedelta
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QPushButton
 from PyQt6.QtCore import QDate
 import sys
 
@@ -57,6 +57,14 @@ class TestAcademicCalendarWidget(unittest.TestCase):
         self.assertEqual(second_week_btn.text(), "Sem 1")
         self.assertTrue(second_week_btn.isEnabled())
 
+    def test_days_outside_period_remain_navigable(self):
+        self.widget.set_academic_period(self.period)
+        self.widget.show_month(2026, 8)
+
+        first_day = self.widget._day_buttons[0]
+        self.assertEqual(first_day.property("cell_date"), date(2026, 7, 27))
+        self.assertTrue(first_day.isEnabled())
+
 
 class TestCalendarViewIntegration(unittest.TestCase):
     def setUp(self):
@@ -97,6 +105,20 @@ class TestCalendarViewIntegration(unittest.TestCase):
         self.assertIn("• Triggers", full_text)
         self.assertIn("• Vistas", full_text)
         self.assertNotIn("\\n", full_text)
+
+    def test_empty_state_requests_academic_period_configuration(self):
+        requests = []
+        self.view.configure_period_requested.connect(lambda: requests.append(True))
+        self.view.set_data([], [], None)
+
+        configure_button = next(
+            button
+            for button in self.view.findChildren(QPushButton)
+            if button.text() == "⚙ Configurar período en Materias"
+        )
+        configure_button.click()
+
+        self.assertEqual(requests, [True])
 
     def test_day_click_updates_selected_week(self):
         self.view.set_data([], self.subjects, self.period)

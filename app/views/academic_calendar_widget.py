@@ -198,13 +198,25 @@ class AcademicCalendarWidget(QWidget):
                     except ImportError:
                         pass
                 
-                d_btn.setEnabled(not cell_outside)
+                # Los eventos académicos pueden existir fuera del período de
+                # cursada (finales, inscripciones, etc.), así que esos días
+                # deben seguir siendo navegables.
+                d_btn.setEnabled(True)
                 
                 # Styles
                 style_chunks = ["border-radius: 4px;"]
                 
                 if cell_outside:
-                    style_chunks.append("color: #404050; background-color: transparent;")
+                    style_chunks.append("color: #606070; background-color: transparent;")
+                    urg = highest_incomplete_urgency(events_by_date.get(cell_date, []))
+                    if urg:
+                        style_chunks.append(
+                            f"border: 2px solid {get_urgency_style(urg)};"
+                        )
+                    else:
+                        style_chunks.append("border: 1px solid transparent;")
+                    if cell_date == self._selected_date:
+                        style_chunks.append("background-color: #555570;")
                     d_btn.setStyleSheet(" ".join(style_chunks))
                     continue
                 

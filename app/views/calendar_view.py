@@ -19,6 +19,7 @@ class CalendarView(QWidget):
     """Vista de calendario con semanas académicas y eventos."""
 
     event_edit_requested = pyqtSignal(dict)
+    configure_period_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -182,17 +183,11 @@ class CalendarView(QWidget):
             self._detail_layout.insertWidget(insert_idx, msg)
             insert_idx += 1
             
-            # Botón para ir a Materias a configurar
             cfg_btn = QPushButton("⚙ Configurar período en Materias")
             cfg_btn.setObjectName("secondaryButton")
             cfg_btn.setMinimumWidth(250)
             cfg_btn.setStyleSheet("margin: 0px 20px 20px 20px;")
-            # MainWindow handles tabs, so we might just emit a signal or instruct user.
-            # No direct tab change here, but the button is a nice touch. It could just be disabled or decorative if no signal is wired, or we just instruct the user.
-            # Let's just leave it as an instruction or wire it to a signal if needed.
-            # Actually, the requirement says "El estado vacío del calendario no incluye el botón para configurar el período."
-            # Since I can't easily switch tabs without a signal, I'll just emit a signal or use text.
-            cfg_btn.clicked.connect(lambda: None) # It's just a mockup for now unless we add a signal
+            cfg_btn.clicked.connect(self.configure_period_requested.emit)
             self._detail_layout.insertWidget(insert_idx, cfg_btn)
             insert_idx += 1
             # Aún así mostramos los eventos

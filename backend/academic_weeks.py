@@ -25,7 +25,7 @@ def academic_week_range(week_number: int, period: AcademicPeriod) -> tuple[date,
     start = date.fromisoformat(period.start_date) + timedelta(weeks=week_number - 1)
     if start > period.effective_end_date:
         return None
-    end = start + timedelta(days=6)
+    end = min(start + timedelta(days=6), period.effective_end_date)
     return (start, end)
 
 def subjects_for_academic_week(subjects: list[SubjectSyllabus], week_number: int) -> list[dict]:

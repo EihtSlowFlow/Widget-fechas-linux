@@ -26,6 +26,8 @@ MANUAL_EVENTS_FILE = CONFIG_DIR / "manual_events.json"
 SUBJECTS_FILE = CONFIG_DIR / "subjects.json"
 ACADEMIC_PERIOD_FILE = CONFIG_DIR / "academic_period.json"
 SYNC_LOCK_FILE = DATA_DIR / "sync.lock"
+WEATHER_SETTINGS_FILE = CONFIG_DIR / "weather.json"
+WEATHER_CACHE_FILE = DATA_DIR / "weather_cache.json"
 
 # Directorio del proyecto (para referencia)
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +36,11 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 SYNC_INTERVAL_MINUTES = 30         # Cada cuánto se sincroniza (systemd timer)
 LOOKAHEAD_DAYS = 90                # Cuántos días hacia adelante buscar eventos
 CACHE_REFRESH_WIDGET_SEC = 60      # Cada cuánto relee el widget el cache.json
+
+# ─── Configuración meteorológica ─────────────────────────────────
+WEATHER_CACHE_MAX_AGE_MINUTES = 30
+WEATHER_REQUEST_TIMEOUT = 10
+MAX_WEATHER_TIME_DIFFERENCE_MINUTES = 90
 
 # ─── Umbrales de urgencia (semáforo) ───────────────────────────────
 URGENCY_THRESHOLDS = {

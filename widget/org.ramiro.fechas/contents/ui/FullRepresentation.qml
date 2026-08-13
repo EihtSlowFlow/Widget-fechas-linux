@@ -272,6 +272,8 @@ Item {
                 visible: navTabBar.currentIndex === 1
                 scheduleModel: root.weeklyScheduleModel
                 subjectsModel: root.subjectsModel
+                todayWeather: root.todayWeather
+                returnWeather: root.returnWeather
             }
         }
 
@@ -303,6 +305,7 @@ Item {
 
             PlasmaComponents.ToolButton {
                 icon.name: "configure"
+                enabled: root.installDir.length > 0
                 PlasmaComponents.ToolTip { text: "Abrir Centro de Gestión" }
                 onClicked: root.openMainApp()
             }

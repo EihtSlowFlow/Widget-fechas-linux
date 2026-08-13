@@ -24,6 +24,7 @@ from app.views.timeline_view import TimelineView
 from app.views.calendar_view import CalendarView
 from app.views.sources_view import SourcesView
 from app.views.subjects_view import SubjectsView
+from app.views.weather_view import WeatherView
 from app.dialogs.event_dialog import EventDialog
 
 
@@ -105,8 +106,17 @@ class MainWindow(QMainWindow):
 
         self._subjects_view = SubjectsView()
         self._subjects_view.subjects_changed.connect(self._on_source_changed)
-        self._subjects_view.academic_period_changed.connect(self._on_source_changed)
+        self._subjects_view.academic_period_changed.connect(
+            self._on_academic_period_changed
+        )
         self._tabs.addTab(self._subjects_view, "📚 Materias")
+        self._calendar_view.configure_period_requested.connect(
+            lambda: self._tabs.setCurrentWidget(self._subjects_view)
+        )
+
+        self._weather_view = WeatherView()
+        self._weather_view.weather_settings_changed.connect(self._on_weather_settings_changed)
+        self._tabs.addTab(self._weather_view, "🌤️ Clima")
 
         self._sources_view = SourcesView()
         self._sources_view.source_changed.connect(self._on_source_changed)
@@ -372,4 +382,12 @@ class MainWindow(QMainWindow):
 
     def _on_source_changed(self):
         """Recarga datos cuando se modifica una fuente."""
+        self._force_sync()
+
+    def _on_academic_period_changed(self):
+        """Actualiza el calendario tras cambiar una configuración local."""
+        self._load_data()
+
+    def _on_weather_settings_changed(self):
+        """Resincroniza al cambiar la configuración meteorológica."""
         self._force_sync()
