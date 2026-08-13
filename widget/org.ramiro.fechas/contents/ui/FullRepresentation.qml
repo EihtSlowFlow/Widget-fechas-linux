@@ -272,6 +272,8 @@ Item {
                 visible: navTabBar.currentIndex === 1
                 scheduleModel: root.weeklyScheduleModel
                 subjectsModel: root.subjectsModel
+                todayWeather: root.todayWeather
+                returnWeather: root.returnWeather
             }
         }
 

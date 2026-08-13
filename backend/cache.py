@@ -27,9 +27,12 @@ from backend.config import (
     COMPLETED_EVENTS_FILE,
     MANUAL_EVENTS_FILE,
     SUBJECTS_FILE,
+    WEATHER_SETTINGS_FILE,
+    WEATHER_CACHE_FILE,
+    WEATHER_CACHE_MAX_AGE_MINUTES,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus
+from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus, WeatherSettings
 
 logger = logging.getLogger("fechas.cache")
 
@@ -392,3 +395,100 @@ def write_subjects(subjects: list[SubjectSyllabus]) -> None:
     """Escribe las materias de forma atómica."""
     ensure_dirs()
     _atomic_write_json(SUBJECTS_FILE, [s.to_dict() for s in subjects])
+
+
+# ─── Configuración meteorológica (weather.json) ───────────────────
+
+def read_weather_settings() -> WeatherSettings:
+    """Lee la configuración meteorológica del usuario."""
+    ensure_dirs()
+    data = _read_json(WEATHER_SETTINGS_FILE, default={})
+    if not isinstance(data, dict):
+        return WeatherSettings()
+    try:
+        return WeatherSettings.from_dict(data)
+    except (ValueError, TypeError) as e:
+        logger.warning("Error leyendo configuración meteorológica: %s", e)
+        return WeatherSettings()
+
+
+def write_weather_settings(settings: WeatherSettings) -> None:
+    """Escribe la configuración meteorológica de forma atómica."""
+    ensure_dirs()
+    _atomic_write_json(WEATHER_SETTINGS_FILE, settings.to_dict())
+
+
+# ─── Caché meteorológico (weather_cache.json) ─────────────────────
+
+def read_weather_cache() -> dict:
+    """Lee el caché de pronóstico meteorológico."""
+    ensure_dirs()
+    data = _read_json(WEATHER_CACHE_FILE, default={})
+    return data if isinstance(data, dict) else {}
+
+
+def write_weather_cache(data: dict) -> None:
+    """Escribe el caché de pronóstico meteorológico de forma atómica."""
+    ensure_dirs()
+    _atomic_write_json(WEATHER_CACHE_FILE, data)
+
+
+def is_weather_cache_valid(
+    cache_data: dict,
+    settings: WeatherSettings,
+    forecast_date: str,
+) -> bool:
+    """
+    Verifica si el caché meteorológico es válido.
+
+    El caché es válido solo si coinciden:
+    - forecast_date (fecha local actual)
+    - latitude y longitude
+    - timezone
+    - Antigüedad menor a WEATHER_CACHE_MAX_AGE_MINUTES
+    """
+    if not cache_data or "weather" not in cache_data:
+        return False
+
+    if not weather_cache_matches_context(cache_data, settings, forecast_date):
+        return False
+
+    # Verificar antigüedad
+    fetched_at = cache_data.get("fetched_at", "")
+    if not fetched_at:
+        return False
+
+    try:
+        fetched_dt = datetime.fromisoformat(fetched_at)
+        age_minutes = (datetime.now().astimezone() - fetched_dt).total_seconds() / 60
+        return age_minutes < WEATHER_CACHE_MAX_AGE_MINUTES
+    except (ValueError, TypeError):
+        return False
+
+
+def weather_cache_matches_context(
+    cache_data: dict,
+    settings: WeatherSettings,
+    forecast_date: str,
+) -> bool:
+    """
+    Verifica si el caché corresponde a la misma fecha y ubicación.
+
+    Ignora la antigüedad (útil para fallback con dato desactualizado).
+    """
+    if not cache_data or "weather" not in cache_data:
+        return False
+
+    if cache_data.get("forecast_date") != forecast_date:
+        return False
+
+    if cache_data.get("latitude") != settings.latitude:
+        return False
+
+    if cache_data.get("longitude") != settings.longitude:
+        return False
+
+    if cache_data.get("timezone") != settings.timezone:
+        return False
+
+    return True
