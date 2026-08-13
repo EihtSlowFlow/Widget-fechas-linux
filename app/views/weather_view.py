@@ -298,11 +298,15 @@ class WeatherView(QWidget):
             loc_text = self._location_label.text()
 
             is_enabled = self._enabled_cb.isChecked()
-            
-            if is_enabled and (lat_text == "—" or lon_text == "—" or tz_text == "—"):
+
+            invalid_lat = not lat_text.strip() or lat_text == "—"
+            invalid_lon = not lon_text.strip() or lon_text == "—"
+            invalid_tz = not tz_text.strip() or tz_text == "—"
+
+            if is_enabled and (invalid_lat or invalid_lon or invalid_tz):
                 QMessageBox.warning(
                     self, "Datos incompletos",
-                    "Para habilitar el clima debés seleccionar una localidad válida usando el buscador."
+                    "Para habilitar el clima debés seleccionar una localidad válida con zona horaria usando el buscador."
                 )
                 return
 
