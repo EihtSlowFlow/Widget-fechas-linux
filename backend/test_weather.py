@@ -309,10 +309,11 @@ class TestCalculateReturnWeather(unittest.TestCase):
         now = datetime(2026, 8, 13, 14, 0, tzinfo=TZ)
         result = calculate_return_weather(self.schedule, self.hourly, now)
         # Temp actual (14:00) = 25 - 14 = 11
-        # Temp al final (21:00) = 25 - 21 = 4
+        # Temp de regreso con 0 min de viaje = 25 - 21 = 4
         # Diff = 4 - 11 = -7
         self.assertEqual(result["current_temperature"], 11.0)
         self.assertEqual(result["end_temperature"], 4.0)
+        self.assertEqual(result["return_temperature"], 4.0)
         self.assertEqual(result["temperature_diff"], -7.0)
 
     def test_return_trip_0_minutes(self):
@@ -323,6 +324,7 @@ class TestCalculateReturnWeather(unittest.TestCase):
         self.assertEqual(result["status"], "upcoming")
         self.assertIsNone(result["weather_at_return"])
         self.assertEqual(result["activity_end_at"], result["estimated_return_at"])
+        self.assertEqual(result["return_temperature"], result["end_temperature"])
 
     def test_return_trip_30_minutes(self):
         now = datetime(2026, 8, 13, 14, 0, tzinfo=TZ)
@@ -336,6 +338,8 @@ class TestCalculateReturnWeather(unittest.TestCase):
         self.assertEqual(end_dt.minute, 30)
         # weather_at_return debería existir (registro a las 22:00)
         self.assertIsNotNone(result["weather_at_return"])
+        # Temp a las 22:00 = 25 - 22 = 3
+        self.assertEqual(result["return_temperature"], 3.0)
 
     def test_multiple_subjects_selects_latest(self):
         schedule = [
@@ -380,6 +384,7 @@ class TestCalculateReturnWeather(unittest.TestCase):
         self.assertEqual(result["status"], "upcoming")
         # 23:30 + 120 min = 01:30 del día siguiente
         self.assertIsNone(result["weather_at_return"])
+        self.assertIsNone(result["return_temperature"])
 
     def test_unavailable_no_weather_data(self):
         schedule = [_make_schedule_entry("Lab", "08:00", "10:00", day=4)]

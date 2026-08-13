@@ -264,7 +264,10 @@ def calculate_return_weather(
     ]
 
     if not today_entries:
-        return {"status": "no_activities"}
+        return {
+            "status": "no_activities",
+            "return_trip_minutes": return_trip_minutes,
+        }
 
     # Ordenar por end_time y tomar la última
     today_entries.sort(key=lambda e: e.get("end_time", ""))
@@ -285,7 +288,10 @@ def calculate_return_weather(
 
     # ¿La última actividad ya terminó?
     if now >= activity_end:
-        return {"status": "completed"}
+        return {
+            "status": "completed",
+            "return_trip_minutes": return_trip_minutes,
+        }
 
     # Hora estimada de regreso
     estimated_return = activity_end + timedelta(minutes=return_trip_minutes)
@@ -309,16 +315,21 @@ def calculate_return_weather(
     if closest_to_now:
         current_temp = closest_to_now.temperature
 
-    # Diferencia de temperatura
-    end_temp = weather_at_end.temperature
+    # Calcular temperatura de regreso y diferencia
+    effective_return_weather = weather_at_return if return_trip_minutes > 0 else weather_at_end
+    return_temp = effective_return_weather.temperature if effective_return_weather else None
+
     temp_diff = (
-        round(end_temp - current_temp, 1)
-        if current_temp is not None
+        round(return_temp - current_temp, 1)
+        if (current_temp is not None and return_temp is not None)
         else None
     )
+    
+    end_temp = weather_at_end.temperature
 
     return {
         "status": "upcoming",
+        "return_trip_minutes": return_trip_minutes,
         "last_activity": {
             "subject_name": last_entry.get("subject_name", ""),
             "end_time": end_time_str,
@@ -332,6 +343,7 @@ def calculate_return_weather(
         ),
         "current_temperature": current_temp,
         "end_temperature": end_temp,
+        "return_temperature": return_temp,
         "temperature_diff": temp_diff,
     }
 
