@@ -24,7 +24,7 @@ class TestSubjectSyllabus(unittest.TestCase):
     def test_day_1_week_1(self):
         today = date(2026, 6, 1)
         results = process_subjects([self.subject], today)
-        
+
         self.assertEqual(len(results), 1)
         res = results[0]
         self.assertEqual(res.week_number, 1)
@@ -35,7 +35,7 @@ class TestSubjectSyllabus(unittest.TestCase):
     def test_day_6_week_1(self):
         today = date(2026, 6, 6) # elapsed=5 -> day_of_week=6
         results = process_subjects([self.subject], today)
-        
+
         self.assertEqual(len(results), 1)
         res = results[0]
         self.assertEqual(res.week_number, 1)
@@ -45,7 +45,7 @@ class TestSubjectSyllabus(unittest.TestCase):
     def test_day_7_week_1(self):
         today = date(2026, 6, 7) # elapsed=6 -> day_of_week=7
         results = process_subjects([self.subject], today)
-        
+
         self.assertEqual(len(results), 1)
         res = results[0]
         self.assertEqual(res.week_number, 1)
@@ -55,7 +55,7 @@ class TestSubjectSyllabus(unittest.TestCase):
     def test_day_8_week_2(self):
         today = date(2026, 6, 8) # elapsed=7 -> week=2, day=1
         results = process_subjects([self.subject], today)
-        
+
         self.assertEqual(len(results), 1)
         res = results[0]
         self.assertEqual(res.week_number, 2)
@@ -71,7 +71,7 @@ class TestSubjectSyllabus(unittest.TestCase):
     def test_first_last_day_last_week(self):
         # max_end_week is 5 (starts at day 29 of course)
         # Week 5 start day (elapsed_days = 28)
-        today = date(2026, 6, 29) 
+        today = date(2026, 6, 29)
         res1 = process_subjects([self.subject], today)
         self.assertEqual(len(res1), 1)
         self.assertEqual(res1[0].week_number, 5)
@@ -116,7 +116,7 @@ class TestSubjectSyllabus(unittest.TestCase):
     def test_corrupt_subject_valid_kept(self, mock_read):
         import backend.cache
         from unittest.mock import patch
-        
+
         # Test full chain starting from cache
         with patch("backend.cache._read_json") as mock_json:
             mock_json.return_value = [
@@ -153,7 +153,7 @@ class TestSubjectSyllabus(unittest.TestCase):
         data = {"day_of_week": 1, "start_time": "10:00", "end_time": "08:00"}
         with self.assertRaises(ValueError):
             ClassScheduleEntry.from_dict(data)
-            
+
     def test_subject_serialization_with_schedule(self):
         data = {
             "name": "Matemática",
@@ -165,7 +165,7 @@ class TestSubjectSyllabus(unittest.TestCase):
         subj = SubjectSyllabus.from_dict(data)
         self.assertEqual(subj.end_date, "2026-10-01")
         self.assertEqual(len(subj.class_schedule), 1)
-        
+
         serialized = subj.to_dict()
         self.assertEqual(serialized["class_schedule"][0]["start_time"], "08:00")
 
@@ -210,12 +210,12 @@ class TestSubjectSyllabus(unittest.TestCase):
         import os
         from pathlib import Path
         from unittest.mock import patch
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             data_dir = tmp_path / "data"
             config_dir = tmp_path / "config"
-            
+
             # Use patch to properly override the constants imported into backend.cache
             with patch("backend.config.DATA_DIR", data_dir), \
                  patch("backend.config.CONFIG_DIR", config_dir), \
@@ -228,9 +228,9 @@ class TestSubjectSyllabus(unittest.TestCase):
                  patch("backend.cache.SUBJECTS_FILE", config_dir / "subjects.json"), \
                  patch("backend.config.SUBJECTS_FILE", config_dir / "subjects.json"), \
                  patch("backend.cache.CACHE_LOCK_FILE", data_dir / "cache.lock"):
-                 
+
                 backend.config.ensure_dirs()
-                
+
                 # 1. Write subjects.json
                 test_subj = [
                     {
@@ -242,22 +242,22 @@ class TestSubjectSyllabus(unittest.TestCase):
                 ]
                 with open(config_dir / "subjects.json", 'w', encoding='utf-8') as f:
                     json.dump(test_subj, f)
-                    
+
                 # 2. Provide empty files to avoid external requests or pollution
                 with open(config_dir / "sources.json", 'w', encoding='utf-8') as f:
                     json.dump([], f)
                 with open(config_dir / "manual_events.json", 'w', encoding='utf-8') as f:
                     json.dump([], f)
-                    
+
                 # 3. Run sync
                 sync()
-                
+
                 # 4. Verify cache.json
                 cache_file = data_dir / "cache.json"
                 self.assertTrue(cache_file.exists())
                 with open(cache_file, 'r', encoding='utf-8') as f:
                     cache_data = json.load(f)
-                    
+
                 self.assertIn("current_subjects", cache_data)
                 self.assertEqual(len(cache_data["current_subjects"]), 1)
                 self.assertEqual(cache_data["current_subjects"][0]["subject_id"], "int1")
@@ -276,7 +276,7 @@ class TestSubjectSyllabus(unittest.TestCase):
             "events": [{"title": "Examen"}],
             "current_subjects": [{"subject_id": "1"}]
         }
-        
+
         cache = CacheData.from_dict(legacy_data)
         self.assertEqual(cache.last_sync, "2026-08-01T10:00:00")
         self.assertEqual(cache.sync_status, "ok")

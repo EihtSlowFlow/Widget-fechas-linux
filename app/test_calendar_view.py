@@ -54,7 +54,7 @@ class TestAcademicCalendarWidget(unittest.TestCase):
         self.assertFalse(first_week_btn.isEnabled())
 
         second_week_btn = self.widget._week_buttons[1] # 3 de Agosto
-        self.assertEqual(second_week_btn.text(), "Sem 1")
+        self.assertEqual(second_week_btn.text(), "Semana 1")
         self.assertTrue(second_week_btn.isEnabled())
 
     def test_days_outside_period_remain_navigable(self):
@@ -64,6 +64,47 @@ class TestAcademicCalendarWidget(unittest.TestCase):
         first_day = self.widget._day_buttons[0]
         self.assertEqual(first_day.property("cell_date"), date(2026, 7, 27))
         self.assertTrue(first_day.isEnabled())
+
+    def test_current_and_selected_week_styles(self):
+        """La semana actual tiene un estilo, y si también está seleccionada tiene otro."""
+        today = date.today()
+        today_monday = today - timedelta(days=today.weekday())
+
+        period_start = today_monday - timedelta(weeks=1)
+        period_end = period_start + timedelta(weeks=16)
+
+        dynamic_period = AcademicPeriod(
+            name="Dynamic Test",
+            start_date=period_start.isoformat(),
+            end_date=period_end.isoformat()
+        )
+        self.widget.set_academic_period(dynamic_period)
+
+        # Simulamos que hoy estamos en el inicio del periodo
+        self.widget.set_selected_date(today_monday)
+
+        # Encontrar el botón que corresponde a la semana de hoy (debería decir "Semana ...")
+        # Sabemos que la semana actual seleccionada tiene un estilo específico:
+        # "font-weight: bold; background-color: #3d3d52; color: #7c9df5; border: 1px solid #7c9df5; border-radius: 4px;"
+
+        current_week_btn = None
+        for w_btn in self.widget._week_buttons:
+            if w_btn.property("row_monday") == today_monday:
+                current_week_btn = w_btn
+                break
+
+        self.assertIsNotNone(current_week_btn)
+
+        # Test combined style
+        self.assertIn("border: 1px solid #7c9df5", current_week_btn.styleSheet())
+        self.assertIn("background-color: #3d3d52", current_week_btn.styleSheet())
+
+        # Change selection to another week
+        self.widget.set_selected_date(today_monday + timedelta(weeks=1))
+
+        # Now current_week_btn should only have current week style
+        self.assertIn("border: 1px solid #7c9df5", current_week_btn.styleSheet())
+        self.assertIn("background: transparent", current_week_btn.styleSheet())
 
 
 class TestCalendarViewIntegration(unittest.TestCase):
@@ -105,6 +146,37 @@ class TestCalendarViewIntegration(unittest.TestCase):
         self.assertIn("• Triggers", full_text)
         self.assertIn("• Vistas", full_text)
         self.assertNotIn("\\n", full_text)
+
+    def test_ui_without_period(self):
+        today = date.today()
+        today_str = today.isoformat() + "T10:00:00"
+        events = [{"title": "Evento Suelto", "due_date": today_str}]
+        self.view.set_data(events, self.subjects, None)
+        self.view._on_date_clicked(today)
+
+        def get_all_texts(layout):
+            texts = []
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item and item.widget():
+                    w = item.widget()
+                    try:
+                        texts.append(w.text())
+                    except AttributeError:
+                        pass
+                    from PyQt6.QtWidgets import QLabel
+                    for child in w.findChildren(QLabel):
+                        texts.append(child.text())
+            return "\n".join(texts)
+
+        full_text = get_all_texts(self.view._detail_layout)
+        day_label_text = self.view._day_label.text()
+
+        self.assertIn("Configurá el período académico para organizar la cursada por semanas", day_label_text)
+        self.assertIn("No hay período académico global configurado", full_text)
+
+        # Verify that normal events still render even without an academic period
+        self.assertIn("Evento Suelto", full_text)
 
     def test_empty_state_requests_academic_period_configuration(self):
         requests = []

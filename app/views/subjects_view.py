@@ -43,7 +43,7 @@ class SubjectsView(QWidget):
         period_header.addStretch()
 
         self._config_period_btn = QPushButton("Configurar Período")
-        self._config_period_btn.clicked.connect(self._config_period)
+        self._config_period_btn.clicked.connect(self.configure_period)
         period_header.addWidget(self._config_period_btn)
         layout.addLayout(period_header)
 
@@ -126,8 +126,23 @@ class SubjectsView(QWidget):
             self._academic_period = None
 
         if self._academic_period:
-            end_str = f" al {self._academic_period.end_date}" if self._academic_period.end_date else ""
-            self._period_info.setText(f"{self._academic_period.name} ({self._academic_period.start_date}{end_str})")
+            from datetime import date
+            try:
+                start_dt = date.fromisoformat(self._academic_period.start_date)
+                end_dt = self._academic_period.effective_end_date
+
+                meses_es = {1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio", 7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"}
+
+                start_str = f"{start_dt.day} de {meses_es[start_dt.month]}"
+                if start_dt.year != end_dt.year:
+                    start_str += f" de {start_dt.year}"
+
+                end_str = f"{end_dt.day} de {meses_es[end_dt.month]} de {end_dt.year}"
+
+                weeks = ((end_dt - start_dt).days // 7) + 1
+                self._period_info.setText(f"{self._academic_period.name} ({start_str} al {end_str} · {weeks} semanas)")
+            except Exception:
+                self._period_info.setText(self._academic_period.name)
         else:
             self._period_info.setText("Sin configurar.")
 
@@ -222,7 +237,7 @@ class SubjectsView(QWidget):
             self._list.setCurrentRow(row)
             self.subjects_changed.emit()
 
-    def _config_period(self):
+    def configure_period(self):
         from app.dialogs.academic_period_dialog import AcademicPeriodDialog
         from backend.cache import write_academic_period
         from backend.models import AcademicPeriod

@@ -26,14 +26,14 @@ class TestCalendarView(unittest.TestCase):
             {"is_completed": False, "urgency": "yellow"}
         ]
         self.assertEqual(highest_incomplete_urgency(events_priority), "orange")
-        
+
         # Con red
         events_red = [
             {"is_completed": False, "urgency": "green"},
             {"is_completed": False, "urgency": "red"}
         ]
         self.assertEqual(highest_incomplete_urgency(events_red), "red")
-        
+
         # Lista vacía -> None
         self.assertIsNone(highest_incomplete_urgency([]))
 

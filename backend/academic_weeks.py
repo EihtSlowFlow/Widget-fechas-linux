@@ -25,7 +25,7 @@ def academic_week_range(week_number: int, period: AcademicPeriod) -> tuple[date,
     start = date.fromisoformat(period.start_date) + timedelta(weeks=week_number - 1)
     if start > period.effective_end_date:
         return None
-    end = min(start + timedelta(days=6), period.effective_end_date)
+    end = start + timedelta(days=6)
     return (start, end)
 
 def subjects_for_academic_week(subjects: list[SubjectSyllabus], week_number: int) -> list[dict]:
@@ -81,4 +81,10 @@ def events_for_date_range(events: list[dict], start_date: date, end_date: date) 
         if start_dt <= end_date and end_dt >= start_date:
             result.append(event)
 
+    def sort_key(e):
+        due = e.get("due_date", "")
+        start = e.get("start_date", "") or due
+        return (due, start, e.get("title", ""))
+
+    result.sort(key=sort_key)
     return result

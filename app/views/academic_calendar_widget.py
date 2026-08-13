@@ -168,9 +168,11 @@ class AcademicCalendarWidget(QWidget):
             is_current_week = (row_monday == today_monday)
 
             if not is_outside:
-                w_btn.setText(f"Sem {week_num}")
+                w_btn.setText(f"Semana {week_num}")
                 w_btn.setEnabled(True)
-                if is_selected_week:
+                if is_selected_week and is_current_week:
+                    w_btn.setStyleSheet("font-weight: bold; background-color: #3d3d52; color: #7c9df5; border: 1px solid #7c9df5; border-radius: 4px;")
+                elif is_selected_week:
                     w_btn.setStyleSheet("font-weight: bold; background-color: #3d3d52; color: #7c9df5; border-radius: 4px;")
                 elif is_current_week:
                     w_btn.setStyleSheet("font-weight: bold; background: transparent; color: #7c9df5; border: 1px solid #7c9df5; border-radius: 4px;")

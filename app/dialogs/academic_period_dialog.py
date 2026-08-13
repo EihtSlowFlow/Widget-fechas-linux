@@ -50,16 +50,26 @@ class AcademicPeriodDialog(QDialog):
         layout.addLayout(start_layout)
 
         # End Date
+        from PyQt6.QtWidgets import QCheckBox
         end_layout = QVBoxLayout()
         end_layout.setSpacing(5)
-        end_label = QLabel("Fecha de finalización (opcional):")
+
+        end_header = QHBoxLayout()
+        end_label = QLabel("Fecha de finalización:")
+        self._has_end_date = QCheckBox("Configurar fecha final explícita")
+        self._has_end_date.stateChanged.connect(self._on_has_end_date_changed)
+        end_header.addWidget(end_label)
+        end_header.addWidget(self._has_end_date)
+        end_header.addStretch()
+
         self._end_edit = QDateEdit()
         self._end_edit.setCalendarPopup(True)
         self._end_edit.setDisplayFormat("dd/MM/yyyy")
-        self._end_edit.setSpecialValueText("Sin configurar (por defecto 16 semanas)")
-        self._end_edit.setDate(self._end_edit.minimumDate()) # Triggers special value
+        self._end_edit.setDate(QDate.currentDate())
+        self._end_edit.setEnabled(False)
         self._end_edit.dateChanged.connect(self._update_estimation)
-        end_layout.addWidget(end_label)
+
+        end_layout.addLayout(end_header)
         end_layout.addWidget(self._end_edit)
         layout.addLayout(end_layout)
 
@@ -85,17 +95,27 @@ class AcademicPeriodDialog(QDialog):
         btn_layout.addWidget(save_btn)
         layout.addLayout(btn_layout)
 
+    def _on_has_end_date_changed(self, state):
+        self._end_edit.setEnabled(self._has_end_date.isChecked())
+        self._update_estimation()
+
     def _load_data(self, period: AcademicPeriod):
         self._name_edit.setText(period.name)
         self._start_edit.setDate(QDate.fromString(period.start_date, Qt.DateFormat.ISODate))
         if period.end_date:
+            self._has_end_date.setChecked(True)
             self._end_edit.setDate(QDate.fromString(period.end_date, Qt.DateFormat.ISODate))
+        else:
+            self._has_end_date.setChecked(False)
 
     def _update_estimation(self):
         start_date = self._start_edit.date().toPyDate()
 
-        if self._end_edit.date() == self._end_edit.minimumDate():
-            self._estimation_label.setText(f"Estimación: 16 semanas (Finaliza aprox. {start_date.strftime('%d/%m/%Y')} + 16 semanas)")
+        if not self._has_end_date.isChecked():
+            from datetime import timedelta
+            end_date = start_date + timedelta(weeks=16) - timedelta(days=1)
+            self._estimation_label.setText(f"Estimación: 16 semanas (Finaliza aprox. el {end_date.strftime('%d/%m/%Y')})")
+            self._estimation_label.setStyleSheet("color: #a0a0b0; font-style: italic;")
         else:
             end_date = self._end_edit.date().toPyDate()
             if end_date < start_date:
@@ -118,7 +138,7 @@ class AcademicPeriodDialog(QDialog):
             return
 
         end_date_str = ""
-        if self._end_edit.date() != self._end_edit.minimumDate():
+        if self._has_end_date.isChecked():
             end_date = self._end_edit.date().toPyDate()
             if end_date < start_date:
                 QMessageBox.warning(self, "Error", "La fecha de finalización no puede ser anterior al inicio.")

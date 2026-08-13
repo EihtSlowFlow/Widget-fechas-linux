@@ -301,7 +301,15 @@ class CalendarView(QWidget):
                 self._detail_layout.insertWidget(insert_idx, d_lbl)
                 insert_idx += 1
 
-                for e, start_dt, due_dt in events_by_day[dt]:
+                def get_sort_key(item):
+                    e = item[0]
+                    due = e.get("due_date", "")
+                    start = e.get("start_date", "") or due
+                    return (due, start, e.get("title", ""))
+
+                sorted_events = sorted(events_by_day[dt], key=get_sort_key)
+
+                for e, start_dt, due_dt in sorted_events:
                     if start_dt != due_dt:
                         range_str = f"Rango: {start_dt.day}/{start_dt.month:02d} al {due_dt.day}/{due_dt.month:02d}"
                         range_lbl = QLabel(range_str)

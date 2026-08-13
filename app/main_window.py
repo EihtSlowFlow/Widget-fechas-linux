@@ -110,9 +110,11 @@ class MainWindow(QMainWindow):
             self._on_academic_period_changed
         )
         self._tabs.addTab(self._subjects_view, "📚 Materias")
-        self._calendar_view.configure_period_requested.connect(
-            lambda: self._tabs.setCurrentWidget(self._subjects_view)
-        )
+        def _on_configure_period():
+            self._tabs.setCurrentWidget(self._subjects_view)
+            self._subjects_view.configure_period()
+
+        self._calendar_view.configure_period_requested.connect(_on_configure_period)
 
         self._weather_view = WeatherView()
         self._weather_view.weather_settings_changed.connect(self._on_weather_settings_changed)

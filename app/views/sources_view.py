@@ -147,7 +147,7 @@ class SourcesView(QWidget):
         if row < 0:
             return
         s = self._sources[row]
-        
+
         if s.id == "manual":
             QMessageBox.warning(self, "Acción no permitida", "La fuente de Eventos Manuales no puede eliminarse, solo deshabilitarse.")
             return

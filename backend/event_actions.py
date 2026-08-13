@@ -15,19 +15,19 @@ from backend.cache import mark_event_seen
 def main():
     parser = argparse.ArgumentParser(description="Acciones sobre eventos")
     subparsers = parser.add_subparsers(dest="action", required=True)
-    
+
     parser_seen = subparsers.add_parser("mark-seen")
     parser_seen.add_argument("event_id", type=str, help="ID del evento a marcar como visto")
-    
+
     args = parser.parse_args()
-    
+
     if args.action == "mark-seen":
         event_id = args.event_id
         # Validar caracteres para mayor seguridad
         if not event_id.replace("-", "").replace("_", "").isalnum():
             print("ID inválido", file=sys.stderr)
             sys.exit(1)
-            
+
         try:
             mark_event_seen(event_id)
             print(f"Evento {event_id} marcado como visto")
