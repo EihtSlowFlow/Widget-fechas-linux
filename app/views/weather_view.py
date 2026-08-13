@@ -297,8 +297,17 @@ class WeatherView(QWidget):
             tz_text = self._tz_label.text()
             loc_text = self._location_label.text()
 
+            is_enabled = self._enabled_cb.isChecked()
+            
+            if is_enabled and (lat_text == "—" or lon_text == "—" or tz_text == "—"):
+                QMessageBox.warning(
+                    self, "Datos incompletos",
+                    "Para habilitar el clima debés seleccionar una localidad válida usando el buscador."
+                )
+                return
+
             settings = WeatherSettings.from_dict({
-                "enabled": self._enabled_cb.isChecked(),
+                "enabled": is_enabled,
                 "location_name": loc_text if loc_text != "—" else "",
                 "latitude": float(lat_text) if lat_text != "—" else None,
                 "longitude": float(lon_text) if lon_text != "—" else None,
