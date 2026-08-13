@@ -146,12 +146,12 @@ class MainWindow(QMainWindow):
         ensure_dirs()
         cache = read_cache()
         self._events = cache.events
-        
+
         try:
             self._academic_period = read_academic_period()
         except Exception:
             self._academic_period = None
-            
+
         try:
             self._subjects = read_subjects()
         except Exception:
@@ -244,7 +244,7 @@ class MainWindow(QMainWindow):
     def _force_sync(self, source_id: str = None):
         """Ejecuta la sincronización utilizando QProcess."""
         from PyQt6.QtCore import QProcess
-        
+
         # Actualizar cola
         if source_id:
             if not self._pending_full_sync:
@@ -262,18 +262,18 @@ class MainWindow(QMainWindow):
             return
 
         project_dir = Path(__file__).resolve().parent.parent
-        
+
         self._sync_process = QProcess(self)
         self._sync_process.setWorkingDirectory(str(project_dir))
-        
+
         self._is_polling_lock = False
-        
+
         def _check_lock():
             if not self._is_polling_lock:
                 return
             self._lock_check_process = QProcess(self)
             self._lock_check_process.setWorkingDirectory(str(project_dir))
-            
+
             def on_lock_check_finished(code, status):
                 if not self._is_polling_lock:
                     return
@@ -281,7 +281,7 @@ class MainWindow(QMainWindow):
                     if hasattr(self, '_sync_timeout_timer'):
                         self._sync_timeout_timer.stop()
                     self._is_polling_lock = False
-                    
+
                     has_pending = self._pending_full_sync or bool(self._pending_source_ids)
                     if self._sync_required_after_unlock or has_pending:
                         self._sync_required_after_unlock = False
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
                         self._load_data()
                 else:
                     QTimer.singleShot(3000, _check_lock)
-                    
+
             def on_lock_check_error(error):
                 if hasattr(self, '_sync_timeout_timer'):
                     self._sync_timeout_timer.stop()
@@ -300,7 +300,7 @@ class MainWindow(QMainWindow):
                 self._sync_btn.setEnabled(True)
                 self._sync_btn.setText("🔄 Sincronizar")
                 self._load_data()
-                
+
             self._lock_check_process.finished.connect(on_lock_check_finished)
             self._lock_check_process.errorOccurred.connect(on_lock_check_error)
             self._lock_check_process.start("python3", [str(project_dir / "backend" / "fechas_sync.py"), "--check-lock"])
@@ -315,7 +315,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self, '_sync_timeout_timer'):
                     self._sync_timeout_timer.stop()
                 self._active_sync_source_id = None
-                
+
                 has_pending = self._pending_full_sync or bool(self._pending_source_ids)
                 if self._sync_required_after_unlock or has_pending:
                     self._sync_required_after_unlock = False
@@ -328,9 +328,9 @@ class MainWindow(QMainWindow):
                     else:
                         self._status_sync.setText("⚠ Error en sync")
                         self._load_data()
-                
+
         self._sync_process.finished.connect(on_finished)
-        
+
         def on_error(error):
             if hasattr(self, '_sync_timeout_timer'):
                 self._sync_timeout_timer.stop()
@@ -339,30 +339,30 @@ class MainWindow(QMainWindow):
             self._sync_btn.setText("🔄 Sincronizar")
             self._status_sync.setText("⚠ Fallo inicio sync")
             self._load_data()
-            
+
         self._sync_process.errorOccurred.connect(on_error)
-        
+
         def on_timeout():
             self._is_polling_lock = False
             self._sync_btn.setEnabled(True)
             self._sync_btn.setText("🔄 Sincronizar")
             self._status_sync.setText("🔄 Sincronización en segundo plano...")
-            
+
         self._sync_timeout_timer = QTimer(self)
         self._sync_timeout_timer.setSingleShot(True)
         self._sync_timeout_timer.timeout.connect(on_timeout)
         self._sync_timeout_timer.start(120000)
-        
+
         self._sync_btn.setEnabled(False)
         self._sync_btn.setText("🔄 Sincronizando...")
         self._status_sync.setText("🔄 Sincronizando...")
-        
+
         self._trigger_queued_sync(initial=True)
 
     def _trigger_queued_sync(self, initial=False):
         project_dir = Path(__file__).resolve().parent.parent
         args = [str(project_dir / "backend" / "fechas_sync.py")]
-        
+
         if self._active_sync_source_id:
             # Reintentar la misma fuente que devolvió código 3
             args.extend(["--source", self._active_sync_source_id])
@@ -374,10 +374,10 @@ class MainWindow(QMainWindow):
         else:
             self._pending_full_sync = False
             self._active_sync_source_id = None
-            
+
         if not initial and hasattr(self, '_sync_timeout_timer'):
             self._sync_timeout_timer.start(120000)
-            
+
         self._sync_process.start("python3", args)
 
     def _on_source_changed(self):

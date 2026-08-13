@@ -85,12 +85,12 @@ class CalendarView(QWidget):
         self._prev_week_btn.setObjectName("secondaryButton")
         self._prev_week_btn.clicked.connect(self._on_prev_week)
         nav_layout.addWidget(self._prev_week_btn)
-        
+
         self._curr_week_btn = QPushButton("Semana actual")
         self._curr_week_btn.setObjectName("secondaryButton")
         self._curr_week_btn.clicked.connect(self._on_curr_week)
         nav_layout.addWidget(self._curr_week_btn)
-        
+
         self._next_week_btn = QPushButton("Semana siguiente →")
         self._next_week_btn.setObjectName("secondaryButton")
         self._next_week_btn.clicked.connect(self._on_next_week)
@@ -127,7 +127,7 @@ class CalendarView(QWidget):
         if not self._selected_monday:
             today = date.today()
             self._selected_monday = today - timedelta(days=today.weekday())
-            
+
         self._render_detail_panel(self._selected_monday)
 
     def _on_date_clicked(self, target_date: date):
@@ -172,9 +172,9 @@ class CalendarView(QWidget):
     def _render_detail_panel(self, monday: date):
         self._clear_detail_layout()
         sunday = monday + timedelta(days=6)
-        
+
         insert_idx = 0
-        
+
         if not self._academic_period:
             self._day_label.setText("Configurá el período académico para organizar la cursada por semanas.")
             msg = QLabel("No hay período académico global configurado.")
@@ -182,7 +182,7 @@ class CalendarView(QWidget):
             msg.setWordWrap(True)
             self._detail_layout.insertWidget(insert_idx, msg)
             insert_idx += 1
-            
+
             cfg_btn = QPushButton("⚙ Configurar período en Materias")
             cfg_btn.setObjectName("secondaryButton")
             cfg_btn.setMinimumWidth(250)
@@ -211,12 +211,12 @@ class CalendarView(QWidget):
             lbl_temario.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DARK_PALETTE['text_secondary']}; margin-top: 10px;")
             self._detail_layout.insertWidget(insert_idx, lbl_temario)
             insert_idx += 1
-            
+
             try:
                 subjects_data = subjects_for_academic_week(self._subjects, week_num)
             except Exception:
                 subjects_data = []
-                
+
             if not subjects_data:
                 msg = QLabel("Sin contenidos asignados esta semana.")
                 msg.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-style: italic;")
@@ -228,7 +228,7 @@ class CalendarView(QWidget):
                     title.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 8px;")
                     self._detail_layout.insertWidget(insert_idx, title)
                     insert_idx += 1
-                    
+
                     if not subj["units"]:
                         msg = QLabel("Sin contenidos asignados esta semana.")
                         msg.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-style: italic;")
@@ -240,7 +240,7 @@ class CalendarView(QWidget):
                             u_name.setStyleSheet(f"color: {DARK_PALETTE['accent']}; font-weight: bold;")
                             self._detail_layout.insertWidget(insert_idx, u_name)
                             insert_idx += 1
-                            
+
                             if u["contents"]:
                                 contents = "\n".join(f"• {c}" for c in u["contents"])
                                 c_lbl = QLabel(contents)
@@ -252,22 +252,22 @@ class CalendarView(QWidget):
                                 msg.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-style: italic;")
                                 self._detail_layout.insertWidget(insert_idx, msg)
                                 insert_idx += 1
-            
+
         # SECTION 2: EVENTOS
         self._render_events_section(monday, sunday, insert_idx)
-        
+
     def _render_events_section(self, monday: date, sunday: date, insert_idx: int):
         lbl_eventos = QLabel("ENTREGAS Y EVENTOS")
         lbl_eventos.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DARK_PALETTE['text_secondary']}; margin-top: 15px;")
         self._detail_layout.insertWidget(insert_idx, lbl_eventos)
         insert_idx += 1
-        
+
         try:
             from backend.academic_weeks import events_for_date_range
             week_events = events_for_date_range(self._events, monday, sunday)
         except ImportError:
             week_events = []
-            
+
         if not week_events:
             msg = QLabel("Sin entregas ni eventos durante esta semana.")
             msg.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; padding: 10px;")
@@ -284,23 +284,23 @@ class CalendarView(QWidget):
                         start_dt = datetime.fromisoformat(start_str).date()
                     else:
                         start_dt = due_dt
-                        
+
                     display_date = max(start_dt, monday)
                     if display_date not in events_by_day:
                         events_by_day[display_date] = []
                     events_by_day[display_date].append((e, start_dt, due_dt))
                 except Exception:
                     pass
-            
+
             dias_es = {0: "Lunes", 1: "Martes", 2: "Miércoles", 3: "Jueves", 4: "Viernes", 5: "Sábado", 6: "Domingo"}
             meses_es = {1: "ene", 2: "feb", 3: "mar", 4: "abr", 5: "may", 6: "jun", 7: "jul", 8: "ago", 9: "sep", 10: "oct", 11: "nov", 12: "dic"}
-            
+
             for dt in sorted(events_by_day.keys()):
                 d_lbl = QLabel(f"{dias_es[dt.weekday()]} {dt.day}")
                 d_lbl.setStyleSheet(f"font-weight: bold; color: {DARK_PALETTE['text_primary']}; margin-top: 6px;")
                 self._detail_layout.insertWidget(insert_idx, d_lbl)
                 insert_idx += 1
-                
+
                 for e, start_dt, due_dt in events_by_day[dt]:
                     if start_dt != due_dt:
                         range_str = f"Rango: {start_dt.day}/{start_dt.month:02d} al {due_dt.day}/{due_dt.month:02d}"
@@ -308,7 +308,7 @@ class CalendarView(QWidget):
                         range_lbl.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-style: italic; font-size: 11px;")
                         self._detail_layout.insertWidget(insert_idx, range_lbl)
                         insert_idx += 1
-                        
+
                     card = EventCard(e)
                     card.edit_requested.connect(self.event_edit_requested.emit)
                     card.completion_toggled.connect(self._on_completion_toggled)
@@ -320,5 +320,5 @@ class CalendarView(QWidget):
             if e.get("id") == event_id:
                 e["is_completed"] = is_completed
                 break
-        
+
         self.set_data(self._events, self._subjects, self._academic_period)

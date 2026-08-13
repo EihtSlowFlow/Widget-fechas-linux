@@ -1,6 +1,6 @@
 from datetime import date
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QMessageBox, QDateEdit
 )
 from PyQt6.QtCore import Qt, QDate
@@ -15,11 +15,11 @@ class AcademicPeriodDialog(QDialog):
         self.setWindowTitle("Configurar período académico")
         self.setMinimumWidth(400)
         self._period = period
-        
+
         self._setup_ui()
         if period:
             self._load_data(period)
-            
+
         self._update_estimation()
 
     def _setup_ui(self):
@@ -73,14 +73,14 @@ class AcademicPeriodDialog(QDialog):
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        
+
         cancel_btn = QPushButton("Cancelar")
         cancel_btn.setObjectName("secondaryButton")
         cancel_btn.clicked.connect(self.reject)
-        
+
         save_btn = QPushButton("Guardar")
         save_btn.clicked.connect(self._save)
-        
+
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
         layout.addLayout(btn_layout)
@@ -93,7 +93,7 @@ class AcademicPeriodDialog(QDialog):
 
     def _update_estimation(self):
         start_date = self._start_edit.date().toPyDate()
-        
+
         if self._end_edit.date() == self._end_edit.minimumDate():
             self._estimation_label.setText(f"Estimación: 16 semanas (Finaliza aprox. {start_date.strftime('%d/%m/%Y')} + 16 semanas)")
         else:

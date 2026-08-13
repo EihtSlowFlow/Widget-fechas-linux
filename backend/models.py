@@ -33,13 +33,13 @@ class ClassScheduleEntry:
 
         start_time = str(data.get("start_time", "")).strip()
         end_time = str(data.get("end_time", "")).strip()
-        
+
         time_pattern = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
         if not time_pattern.match(start_time):
             raise ValueError(f"start_time inválido: {start_time}")
         if not time_pattern.match(end_time):
             raise ValueError(f"end_time inválido: {end_time}")
-            
+
         if start_time >= end_time:
             raise ValueError(f"start_time debe ser menor a end_time ({start_time} >= {end_time})")
 
@@ -48,7 +48,7 @@ class ClassScheduleEntry:
         # Filtrar campos desconocidos
         valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in valid_fields}
-        
+
         # Sobreescribir con los valores parseados y validados
         filtered.update({
             "day_of_week": day,
@@ -56,7 +56,7 @@ class ClassScheduleEntry:
             "end_time": end_time,
             "location": location
         })
-        
+
         return cls(**filtered)
 
 
@@ -185,7 +185,7 @@ class SyllabusUnit:
                 continue
             if isinstance(w, float):
                 continue
-                
+
             val = None
             if isinstance(w, int):
                 val = w
@@ -193,7 +193,7 @@ class SyllabusUnit:
                 w = w.strip()
                 if w.isdigit():
                     val = int(w)
-                    
+
             if val is not None and val >= 1:
                 weeks.append(val)
         # Deduplicate preserving first occurrence, then sort
@@ -236,17 +236,17 @@ class SubjectSyllabus:
     def from_dict(cls, data: dict) -> SubjectSyllabus:
         name = str(data.get("name", "")).strip()
         start_date = str(data.get("start_date", "")).strip()
-        
+
         if not name:
             raise ValueError("Nombre de materia vacío")
-            
+
         # Validar formato ISO 8601
         date.fromisoformat(start_date)
-        
+
         schedule_data = data.get("class_schedule", [])
         if not isinstance(schedule_data, list):
             schedule_data = []
-            
+
         class_schedule = []
         for e in schedule_data:
             if not isinstance(e, dict):
@@ -276,7 +276,7 @@ class SubjectSyllabus:
         subj_id = data.get("id")
         if not subj_id or not isinstance(subj_id, str):
             subj_id = str(uuid.uuid4())
-            
+
         end_date = str(data.get("end_date", "")).strip()
         if end_date:
             try:
@@ -288,7 +288,7 @@ class SubjectSyllabus:
                     end_date = ""
             except ValueError:
                 end_date = ""
-            
+
         return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, class_schedule=class_schedule, units=units)
 
 
@@ -479,11 +479,11 @@ class AcademicPeriod:
         raw_name = data.get("name")
         if not isinstance(raw_name, str):
             raise ValueError("Nombre de periodo inválido")
-            
+
         name = raw_name.strip()
         if not name:
             raise ValueError("Nombre de periodo vacío")
-        
+
         start_date = str(data.get("start_date", "")).strip()
         d_start = date.fromisoformat(start_date)
         if d_start.weekday() != 0:

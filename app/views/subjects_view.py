@@ -41,16 +41,16 @@ class SubjectsView(QWidget):
         period_title.setObjectName("sectionTitle")
         period_header.addWidget(period_title)
         period_header.addStretch()
-        
+
         self._config_period_btn = QPushButton("Configurar Período")
         self._config_period_btn.clicked.connect(self._config_period)
         period_header.addWidget(self._config_period_btn)
         layout.addLayout(period_header)
-        
+
         self._period_info = QLabel("Cargando...")
         self._period_info.setStyleSheet(f"color: {DARK_PALETTE['text_secondary']};")
         layout.addWidget(self._period_info)
-        
+
         # Header Materias
         header = QHBoxLayout()
         title = QLabel("Materias")
@@ -124,7 +124,7 @@ class SubjectsView(QWidget):
             self._academic_period = read_academic_period()
         except Exception:
             self._academic_period = None
-            
+
         if self._academic_period:
             end_str = f" al {self._academic_period.end_date}" if self._academic_period.end_date else ""
             self._period_info.setText(f"{self._academic_period.name} ({self._academic_period.start_date}{end_str})")
@@ -151,7 +151,7 @@ class SubjectsView(QWidget):
             self._detail_start.setText(f"Inicio: {s.start_date} | Fin: {s.end_date}")
         else:
             self._detail_start.setText(f"Inicio de cursada: {s.start_date}")
-            
+
         if not hasattr(s, 'class_schedule') or not s.class_schedule:
             self._detail_schedule.setText("Sin horarios configurados.")
         else:
@@ -162,7 +162,7 @@ class SubjectsView(QWidget):
                 loc = f" (📍 {entry.location})" if entry.location else ""
                 lines.append(f"• {day_name} {entry.start_time}-{entry.end_time}{loc}")
             self._detail_schedule.setText("Horarios:\n" + "\n".join(lines))
-        
+
         if hasattr(s, 'units') and s.units:
             lines = []
             for unit in s.units:
@@ -211,7 +211,7 @@ class SubjectsView(QWidget):
         if row < 0:
             return
         s = self._subjects[row]
-        
+
         from app.dialogs.subject_dialog import SubjectDialog
         dialog = SubjectDialog(self, subject_data=s.to_dict(), academic_period=self._academic_period)
         if dialog.exec():
@@ -226,7 +226,7 @@ class SubjectsView(QWidget):
         from app.dialogs.academic_period_dialog import AcademicPeriodDialog
         from backend.cache import write_academic_period
         from backend.models import AcademicPeriod
-        
+
         dialog = AcademicPeriodDialog(period=self._academic_period, parent=self)
         if dialog.exec():
             new_period = AcademicPeriod.from_dict(dialog.period_data)

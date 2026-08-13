@@ -8,10 +8,10 @@ def academic_week_number(target_date: date, period: AcademicPeriod) -> int | Non
     """
     start = date.fromisoformat(period.start_date)
     end = period.effective_end_date
-    
+
     if target_date < start or target_date > end:
         return None
-        
+
     delta = target_date - start
     return (delta.days // 7) + 1
 
@@ -42,13 +42,13 @@ def subjects_for_academic_week(subjects: list[SubjectSyllabus], week_number: int
                     "name": unit.name,
                     "contents": unit.contents
                 })
-        
+
         if matched_units:
             result.append({
                 "subject_name": subject.name,
                 "units": matched_units
             })
-            
+
     return result
 
 def events_for_date_range(events: list[dict], start_date: date, end_date: date) -> list[dict]:
@@ -62,13 +62,13 @@ def events_for_date_range(events: list[dict], start_date: date, end_date: date) 
         due = event.get("due_date", "")
         if not due:
             continue
-            
+
         try:
             from datetime import datetime
             end_dt = datetime.fromisoformat(due).date()
         except ValueError:
             continue
-            
+
         start = event.get("start_date", "")
         if start:
             try:
@@ -77,8 +77,8 @@ def events_for_date_range(events: list[dict], start_date: date, end_date: date) 
                 start_dt = end_dt
         else:
             start_dt = end_dt
-            
+
         if start_dt <= end_date and end_dt >= start_date:
             result.append(event)
-            
+
     return result

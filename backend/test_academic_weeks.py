@@ -14,17 +14,17 @@ class TestAcademicPeriod(unittest.TestCase):
             AcademicPeriod.from_dict({"name": "", "start_date": "2026-03-09"})
         with self.assertRaises(ValueError):
             AcademicPeriod.from_dict({"name": None, "start_date": "2026-03-09"})
-            
+
     def test_invalid_start_date(self):
         # Martes 2026-03-10
         with self.assertRaises(ValueError):
             AcademicPeriod.from_dict({"name": "Test", "start_date": "2026-03-10"})
-            
+
     def test_invalid_end_date(self):
         # End date < start date
         with self.assertRaises(ValueError):
             AcademicPeriod.from_dict({
-                "name": "Test", 
+                "name": "Test",
                 "start_date": "2026-03-09",
                 "end_date": "2026-03-08"
             })
@@ -70,7 +70,7 @@ class TestAcademicWeeks(unittest.TestCase):
             (date(2026, 3, 16), date(2026, 3, 22))
         )
         self.assertIsNone(academic_week_range(0, self.period))
-        
+
         # Out of bounds (period has 16 weeks max)
         self.assertIsNone(academic_week_range(17, self.period))
         # 16th week should be fine (ends June 28)

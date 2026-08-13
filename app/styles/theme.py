@@ -266,7 +266,7 @@ def highest_incomplete_urgency(events: list[dict]) -> str | None:
     levels = {"red": 4, "orange": 3, "yellow": 2, "green": 1}
     max_level = 0
     max_urg = None
-    
+
     for e in events:
         if not e.get("is_completed"):
             urg = e.get("urgency", "green")
@@ -274,5 +274,5 @@ def highest_incomplete_urgency(events: list[dict]) -> str | None:
             if lvl > max_level:
                 max_level = lvl
                 max_urg = urg
-                
+
     return max_urg
