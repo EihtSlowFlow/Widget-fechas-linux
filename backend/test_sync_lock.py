@@ -13,17 +13,17 @@ class TestSyncLock(unittest.TestCase):
         """
         project_dir = Path(__file__).resolve().parent.parent
         sync_script = project_dir / "backend" / "fechas_sync.py"
-        
+
         with tempfile.TemporaryDirectory() as temp_home:
             # Set up fake HOME
             env = os.environ.copy()
             env["HOME"] = temp_home
-            
+
             # 1. Crear el directorio app_data
             app_data_dir = Path(temp_home) / ".local" / "share" / "fechas-academicas"
             app_data_dir.mkdir(parents=True, exist_ok=True)
             lock_file_path = app_data_dir / "sync.lock"
-            
+
             # Script python para adquirir el lock y quedarse esperando
             lock_holder_code = f"""
 import fcntl
@@ -43,18 +43,18 @@ with open('{lock_file_path}', 'w') as f:
                     env=env,
                     text=True
                 )
-                
+
                 # Esperar hasta que avise que ya tiene el lock
                 ready = p_holder.stdout.readline()
                 self.assertEqual(ready.strip(), "READY")
-                
+
                 # Lanzar fechas_sync.py, el cual debería fallar
                 p_sync = subprocess.run(
                     [sys.executable, str(sync_script), "--dry-run"],
                     capture_output=True,
                     env=env
                 )
-                
+
                 # Debe retornar 3
                 self.assertEqual(p_sync.returncode, 3, "El script debió abortar con código 3 porque el lock estaba tomado.")
             finally:

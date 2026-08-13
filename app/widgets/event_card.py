@@ -290,7 +290,7 @@ class EventCard(QFrame):
         """)
         cat_label.setFixedHeight(22)
         right_col.addWidget(cat_label)
-        
+
         # Botón de edición (sólo eventos manuales)
         if e.get("is_manual") is True:
             self._edit_btn = QPushButton("✏ Editar")

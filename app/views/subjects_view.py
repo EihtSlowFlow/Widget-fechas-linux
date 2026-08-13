@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from backend.cache import read_subjects, write_subjects
+from backend.cache import read_subjects, write_subjects, read_academic_period
 from backend.models import SubjectSyllabus
 from app.styles.theme import DARK_PALETTE
 
@@ -21,10 +21,12 @@ class SubjectsView(QWidget):
     """Vista para gestionar materias y sus temarios."""
 
     subjects_changed = pyqtSignal()
+    academic_period_changed = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._subjects: list[SubjectSyllabus] = []
+        self._academic_period = None
         self._setup_ui()
         self.reload_subjects()
 
@@ -33,9 +35,25 @@ class SubjectsView(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        # Header
+        # Período académico header
+        period_header = QHBoxLayout()
+        period_title = QLabel("Período Académico")
+        period_title.setObjectName("sectionTitle")
+        period_header.addWidget(period_title)
+        period_header.addStretch()
+
+        self._config_period_btn = QPushButton("Configurar Período")
+        self._config_period_btn.clicked.connect(self.configure_period)
+        period_header.addWidget(self._config_period_btn)
+        layout.addLayout(period_header)
+
+        self._period_info = QLabel("Cargando...")
+        self._period_info.setStyleSheet(f"color: {DARK_PALETTE['text_secondary']};")
+        layout.addWidget(self._period_info)
+
+        # Header Materias
         header = QHBoxLayout()
-        title = QLabel("Materias (Semana de cursada)")
+        title = QLabel("Materias")
         title.setObjectName("sectionTitle")
         header.addWidget(title)
         header.addStretch()
@@ -101,7 +119,33 @@ class SubjectsView(QWidget):
         layout.addWidget(self._detail_frame)
 
     def reload_subjects(self):
-        """Recarga las materias desde disco."""
+        """Recarga las materias y el período desde disco."""
+        try:
+            self._academic_period = read_academic_period()
+        except Exception:
+            self._academic_period = None
+
+        if self._academic_period:
+            from datetime import date
+            try:
+                start_dt = date.fromisoformat(self._academic_period.start_date)
+                end_dt = self._academic_period.effective_end_date
+
+                meses_es = {1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio", 7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"}
+
+                start_str = f"{start_dt.day} de {meses_es[start_dt.month]}"
+                if start_dt.year != end_dt.year:
+                    start_str += f" de {start_dt.year}"
+
+                end_str = f"{end_dt.day} de {meses_es[end_dt.month]} de {end_dt.year}"
+
+                weeks = ((end_dt - start_dt).days // 7) + 1
+                self._period_info.setText(f"{self._academic_period.name} ({start_str} al {end_str} · {weeks} semanas)")
+            except Exception:
+                self._period_info.setText(self._academic_period.name)
+        else:
+            self._period_info.setText("Sin configurar.")
+
         self._subjects = read_subjects()
         self._list.clear()
         for s in self._subjects:
@@ -122,7 +166,7 @@ class SubjectsView(QWidget):
             self._detail_start.setText(f"Inicio: {s.start_date} | Fin: {s.end_date}")
         else:
             self._detail_start.setText(f"Inicio de cursada: {s.start_date}")
-            
+
         if not hasattr(s, 'class_schedule') or not s.class_schedule:
             self._detail_schedule.setText("Sin horarios configurados.")
         else:
@@ -133,7 +177,7 @@ class SubjectsView(QWidget):
                 loc = f" (📍 {entry.location})" if entry.location else ""
                 lines.append(f"• {day_name} {entry.start_time}-{entry.end_time}{loc}")
             self._detail_schedule.setText("Horarios:\n" + "\n".join(lines))
-        
+
         if hasattr(s, 'units') and s.units:
             lines = []
             for unit in s.units:
@@ -168,7 +212,7 @@ class SubjectsView(QWidget):
 
     def _add_subject(self):
         from app.dialogs.subject_dialog import SubjectDialog
-        dialog = SubjectDialog(self)
+        dialog = SubjectDialog(self, academic_period=self._academic_period)
         if dialog.exec():
             data = dialog.get_subject_data()
             new_subject = SubjectSyllabus.from_dict(data)
@@ -182,9 +226,9 @@ class SubjectsView(QWidget):
         if row < 0:
             return
         s = self._subjects[row]
-        
+
         from app.dialogs.subject_dialog import SubjectDialog
-        dialog = SubjectDialog(self, subject_data=s.to_dict())
+        dialog = SubjectDialog(self, subject_data=s.to_dict(), academic_period=self._academic_period)
         if dialog.exec():
             data = dialog.get_subject_data()
             self._subjects[row] = SubjectSyllabus.from_dict(data)
@@ -192,3 +236,15 @@ class SubjectsView(QWidget):
             self.reload_subjects()
             self._list.setCurrentRow(row)
             self.subjects_changed.emit()
+
+    def configure_period(self):
+        from app.dialogs.academic_period_dialog import AcademicPeriodDialog
+        from backend.cache import write_academic_period
+        from backend.models import AcademicPeriod
+
+        dialog = AcademicPeriodDialog(period=self._academic_period, parent=self)
+        if dialog.exec():
+            new_period = AcademicPeriod.from_dict(dialog.period_data)
+            write_academic_period(new_period)
+            self.reload_subjects()
+            self.academic_period_changed.emit()

@@ -95,7 +95,7 @@ def is_subject_active(subj: SubjectSyllabus, today: date) -> bool:
         start_date = date.fromisoformat(subj.start_date)
     except ValueError:
         return False
-        
+
     if today < start_date:
         return False
 
@@ -138,16 +138,16 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
             start_date = date.fromisoformat(subj.start_date)
         except ValueError:
             continue
-            
+
         elapsed_days = (today - start_date).days
         week_number = elapsed_days // 7 + 1
-        
+
         # day_of_week relativo a la cursada, usado por el temario, no por agenda
         day_of_week = elapsed_days % 7 + 1
-        
+
         week_start = start_date + timedelta(days=(week_number - 1) * 7)
         week_end = week_start + timedelta(days=6)
-        
+
         topics = []
         unit_dicts = []
 
@@ -173,21 +173,21 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
             topics=topics,
             units=unit_dicts
         ))
-        
+
     return current_subjects
 
 
 def generate_weekly_schedule(subjects: list[SubjectSyllabus], today: date) -> list[dict]:
     """Genera la agenda semanal de clases para materias activas."""
     schedule = []
-    
+
     for subj in subjects:
         if not is_subject_active(subj, today):
             continue
-            
+
         if not hasattr(subj, 'class_schedule') or not subj.class_schedule:
             continue
-            
+
         for entry in subj.class_schedule:
             schedule.append({
                 "subject_id": subj.id,
@@ -197,7 +197,7 @@ def generate_weekly_schedule(subjects: list[SubjectSyllabus], today: date) -> li
                 "end_time": entry.end_time,
                 "location": getattr(entry, 'location', "")
             })
-            
+
     # Ordenar por día de la semana y hora de inicio
     schedule.sort(key=lambda x: (x["day_of_week"], x["start_time"]))
     return schedule
@@ -216,7 +216,7 @@ def find_schedule_overlaps(entries: list[dict]) -> list[tuple]:
         if day not in by_day:
             by_day[day] = []
         by_day[day].append(e)
-        
+
     for day, day_entries in by_day.items():
         # Ordenar por hora de inicio
         day_entries.sort(key=lambda x: x["start_time"])
@@ -228,7 +228,7 @@ def find_schedule_overlaps(entries: list[dict]) -> list[tuple]:
                 if e2["start_time"] < e1["end_time"]:
                     overlaps.append((e1, e2))
                 else:
-                    # Como están ordenados, si e2 comienza después del fin de e1, 
+                    # Como están ordenados, si e2 comienza después del fin de e1,
                     # los siguientes también lo harán
                     break
     return overlaps
@@ -263,7 +263,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
 
     previous_cache = None
     all_events: list[AcademicEvent] = []
-    
+
     if source_id:
         from backend.cache import read_cache
         try:
@@ -280,7 +280,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
 
     # 2. Descargar eventos de cada fuente
     sources_to_sync = [target_source] if source_id else sources
-    
+
     for source in sources_to_sync:
         if source.type == "manual":
             continue
@@ -416,7 +416,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
 
     # 11. Construir cache y escribir bajo lock
     from backend.cache import apply_completed_status, cache_lock
-    
+
     current_errors = [
         f"{s.name}: {s.sync_error}"
         for s in sources
@@ -424,10 +424,10 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     ]
     global_status = "partial" if current_errors else "ok"
     global_error = "; ".join(current_errors) if current_errors else None
-    
+
     event_dicts = [e.to_dict() for e in unique_events]
     subject_dicts = [cs.to_dict() for cs in current_subjects]
-    
+
     if not dry_run:
         with cache_lock():
             event_dicts = apply_completed_status(event_dicts)
@@ -471,13 +471,13 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                 "  %s %s %3dd │ %s │ %s",
                 flag, urgency_icon, e.days_remaining, e.title[:50], e.source_name,
             )
-        
+
         logger.info("─── Materias Actuales ───")
         for cs in current_subjects:
             logger.info("  📚 %s: Semana %d (Día %d/7)", cs.subject_name, cs.week_number, cs.day_of_week)
             for t in cs.topics:
                 logger.info("      - %s", t)
-                
+
         logger.info("─── Agenda Semanal ───")
         for ws in weekly_schedule:
             days = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -533,7 +533,7 @@ def main():
             logger.warning("Ya hay una sincronización en curso. Abortando.")
             print("ALREADY_RUNNING")
             sys.exit(3)
-            
+
         if args.check_lock:
             # We acquired the lock successfully, so no sync is running.
             sys.exit(0)

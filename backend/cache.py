@@ -27,12 +27,16 @@ from backend.config import (
     COMPLETED_EVENTS_FILE,
     MANUAL_EVENTS_FILE,
     SUBJECTS_FILE,
+    ACADEMIC_PERIOD_FILE,
     WEATHER_SETTINGS_FILE,
     WEATHER_CACHE_FILE,
     WEATHER_CACHE_MAX_AGE_MINUTES,
     ensure_dirs,
 )
-from backend.models import AcademicEvent, CacheData, DataSource, SubjectSyllabus, WeatherSettings
+from backend.models import (
+    AcademicEvent, AcademicPeriod, CacheData, DataSource,
+    SubjectSyllabus, WeatherSettings,
+)
 
 logger = logging.getLogger("fechas.cache")
 
@@ -200,11 +204,11 @@ def toggle_completed(event_id: str) -> bool:
     """
     Alterna el estado de completado de un evento.
     Retorna True si quedó completado, False si se desmarcó.
-    Ambas actualizaciones (lista de completados y cache.json) 
+    Ambas actualizaciones (lista de completados y cache.json)
     se protegen bajo el mismo lock para evitar condiciones de carrera.
     """
     ensure_dirs()
-    
+
     with cache_lock():
         completed = read_completed_events()
         if event_id in completed:
@@ -213,7 +217,7 @@ def toggle_completed(event_id: str) -> bool:
         else:
             completed.add(event_id)
             result = True
-        
+
         _atomic_write_json(COMPLETED_EVENTS_FILE, list(completed))
 
         # Actualizar cache.json inmediatamente para que el widget y la UI se sincronicen
@@ -327,17 +331,17 @@ def update_manual_event(event_id: str, updated_event: AcademicEvent) -> bool:
             event.description = updated_event.description
             event.due_date = updated_event.due_date
             event.category = updated_event.category
-            
+
             # Forzar identidad de evento manual
             event.id = event_id
             event.source_id = "manual"
             event.source_name = "Eventos Manuales"
             event.is_manual = True
-            
+
             events[i] = event
             write_manual_events(events)
             return True
-            
+
     raise ValueError(f"El evento manual '{event_id}' ya no existe")
 
 
@@ -350,25 +354,25 @@ def delete_manual_event(event_id: str) -> bool:
     events = [e for e in events if e.id != event_id]
     if len(events) == initial_count:
         raise ValueError(f"El evento manual '{event_id}' no existe")
-        
+
     write_manual_events(events)
-    
+
     # Limpiar estados asociados
     completed = read_completed_events()
     if event_id in completed:
         completed.discard(event_id)
         _atomic_write_json(COMPLETED_EVENTS_FILE, list(completed))
-        
+
     seen = read_seen_events()
     if event_id in seen:
         seen.discard(event_id)
         _atomic_write_json(SEEN_EVENTS_FILE, list(seen))
-        
+
     known = read_known_events()
     if event_id in known:
         del known[event_id]
         write_known_events(known)
-        
+
     return True
 
 
@@ -378,7 +382,7 @@ def read_subjects() -> list[SubjectSyllabus]:
     """Lee las materias y temarios del usuario."""
     ensure_dirs()
     data = _read_json(SUBJECTS_FILE, default=[])
-    
+
     subjects = []
     if isinstance(data, list):
         for s in data:
@@ -397,6 +401,24 @@ def write_subjects(subjects: list[SubjectSyllabus]) -> None:
     _atomic_write_json(SUBJECTS_FILE, [s.to_dict() for s in subjects])
 
 
+# ─── Periodo Académico (academic_period.json) ─────────────────────
+
+def read_academic_period() -> AcademicPeriod | None:
+    """Lee el periodo académico."""
+    ensure_dirs()
+    data = _read_json(ACADEMIC_PERIOD_FILE, default={})
+    if not data:
+        return None
+    try:
+        return AcademicPeriod.from_dict(data)
+    except Exception as e:
+        logger.warning("Error leyendo periodo académico: %s", e)
+        return None
+
+def write_academic_period(period: AcademicPeriod) -> None:
+    """Escribe el periodo académico de forma atómica."""
+    ensure_dirs()
+    _atomic_write_json(ACADEMIC_PERIOD_FILE, period.to_dict())
 # ─── Configuración meteorológica (weather.json) ───────────────────
 
 def read_weather_settings() -> WeatherSettings:

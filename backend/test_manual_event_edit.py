@@ -24,17 +24,18 @@ class TestManualEventEdit(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.temp_path = Path(self.temp_dir.name)
-        
+
         self.patchers = [
             mock.patch('backend.cache.MANUAL_EVENTS_FILE', self.temp_path / "manual_events.json"),
             mock.patch('backend.cache.KNOWN_EVENTS_FILE', self.temp_path / "known_events.json"),
             mock.patch('backend.cache.SEEN_EVENTS_FILE', self.temp_path / "seen_events.json"),
             mock.patch('backend.cache.COMPLETED_EVENTS_FILE', self.temp_path / "completed_events.json"),
             mock.patch('backend.cache.CACHE_FILE', self.temp_path / "cache.json"),
+            mock.patch('backend.cache.CACHE_LOCK_FILE', self.temp_path / "cache.lock"),
         ]
         for p in self.patchers:
             p.start()
-            
+
         # Limpiar eventos para cada test
         write_manual_events([])
 
@@ -55,7 +56,7 @@ class TestManualEventEdit(unittest.TestCase):
         )
         evt.id = "uuid-test-123"
         write_manual_events([evt])
-        
+
         # Otro evento que debe permanecer intacto
         evt2 = AcademicEvent(
             title="Otro evento",
@@ -77,7 +78,7 @@ class TestManualEventEdit(unittest.TestCase):
             source_name="Malicioso",
             is_manual=False
         )
-        
+
         result = update_manual_event("uuid-test-123", updated)
         self.assertTrue(result)
 
@@ -91,10 +92,10 @@ class TestManualEventEdit(unittest.TestCase):
         self.assertEqual(mod_evt.category, "entrega")
         self.assertEqual(mod_evt.source_id, "manual")  # Fue forzado
         self.assertEqual(mod_evt.is_manual, True)  # Fue forzado
-        
+
         other_evt = next(e for e in events if e.id == "uuid-test-456")
         self.assertEqual(other_evt.title, "Otro evento")
-        
+
     def test_update_inexistent_event_raises_error(self):
         updated = AcademicEvent(
             title="Fake",
@@ -105,7 +106,7 @@ class TestManualEventEdit(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             update_manual_event("no-existe", updated)
-            
+
         self.assertEqual(len(read_manual_events()), 0)
 
     def test_completed_status_is_retained_after_edit(self):
@@ -137,7 +138,7 @@ class TestManualEventEdit(unittest.TestCase):
         events = read_manual_events()
         events_dict = [e.to_dict() for e in events]
         events_dict = apply_completed_status(events_dict)
-        
+
         self.assertTrue(events_dict[0]["is_completed"])
 
     def test_novelty_status_is_retained_after_edit(self):
@@ -149,21 +150,21 @@ class TestManualEventEdit(unittest.TestCase):
             is_manual=True
         )
         evt.id = "uuid-test-789"
-        
+
         # Primera pasada: debería registrarse en known_events con la fecha de hoy
         events = update_novelty([evt])
         self.assertTrue(events[0].is_new)
-        
+
         # Lo marcamos como visto
         mark_event_seen(evt.id)
-        
+
         # Segunda pasada, ya no debe ser nuevo
         events = update_novelty([evt])
         self.assertFalse(events[0].is_new)
 
         # Editamos el evento (cambia título, que afectaría a generate_stable_id)
         evt.title = "Título modificado que cambiaría stable_id"
-        
+
         # Tercera pasada: update_novelty debería seguir sin marcarlo como nuevo
         events = update_novelty([evt])
         self.assertFalse(events[0].is_new)
