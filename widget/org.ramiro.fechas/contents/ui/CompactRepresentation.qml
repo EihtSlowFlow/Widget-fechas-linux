@@ -69,8 +69,14 @@ Item {
             text: {
                 if (!root.todayWeather || !root.todayWeather.current || !root.returnWeather || root.returnWeather.status !== "upcoming") return "";
                 var currentTemp = Math.round(root.todayWeather.current.temperature);
-                var endTemp = Math.round(root.returnWeather.end_temperature);
-                return "🌤️ " + currentTemp + "° → 🌙 " + endTemp + "°";
+                var returnTemp = root.returnWeather.return_temperature !== null && root.returnWeather.return_temperature !== undefined 
+                    ? Math.round(root.returnWeather.return_temperature) 
+                    : null;
+                if (returnTemp !== null) {
+                    return "🌤️ " + currentTemp + "° → 🌙 " + returnTemp + "°";
+                } else {
+                    return "🌤️ " + currentTemp + "°";
+                }
             }
             font.pixelSize: Kirigami.Units.gridUnit * 0.55
             font.bold: true

@@ -60,6 +60,36 @@ Item {
             }
         }
 
+        // ─── Global Weather ─────────────────────────────────
+        PlasmaComponents.Label {
+            Layout.fillWidth: true
+            Layout.preferredHeight: implicitHeight
+            wrapMode: Text.Wrap
+            visible: root.todayWeather !== undefined && root.todayWeather !== null && root.todayWeather.current !== undefined && root.todayWeather.current !== null
+            font.pixelSize: Kirigami.Units.gridUnit * 0.7
+            opacity: 0.8
+            text: {
+                if (!root.todayWeather || !root.todayWeather.current) return "";
+                var c = root.todayWeather.current;
+                var baseText = "🌤️ Ahora " + Math.round(c.temperature) + " °C · Sens. " + Math.round(c.apparent_temperature) + " °C";
+                
+                if (root.returnWeather && root.returnWeather.status === "upcoming") {
+                    if (root.returnWeather.return_temperature !== null && root.returnWeather.return_temperature !== undefined) {
+                        var w = root.returnWeather.weather_at_return || root.returnWeather.weather_at_end;
+                        if (w) {
+                            baseText += "\n🌙 Vuelta " + Math.round(root.returnWeather.return_temperature) + " °C · Sens. " + Math.round(w.apparent_temperature) + " °C";
+                        }
+                    } else {
+                        var wEnd = root.returnWeather.weather_at_end;
+                        if (wEnd) {
+                            baseText += "\n🌙 Al terminar " + Math.round(wEnd.temperature) + " °C · Pronóstico de regreso no disponible para hoy";
+                        }
+                    }
+                }
+                return baseText;
+            }
+        }
+
         // ─── Navigation Tabs ────────────────────────────────
         PlasmaComponents.TabBar {
             id: navTabBar

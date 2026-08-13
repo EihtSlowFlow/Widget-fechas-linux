@@ -15,7 +15,7 @@ from PyQt6.QtGui import QFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from backend.cache import read_weather_settings, write_weather_settings
+from backend.cache import read_weather_settings, write_weather_settings, read_cache
 from backend.models import WeatherSettings, HourlyWeather
 from backend.weather import geocode_location, fetch_today_weather, calculate_return_weather, get_weather_icon
 from app.styles.theme import DARK_PALETTE
@@ -44,19 +44,29 @@ class _WeatherTestWorker(QObject):
     finished = pyqtSignal(dict)  # emits the TodayWeather.to_dict()
     error = pyqtSignal(str)
 
-    def __init__(self, lat: float, lon: float, tz: str, location_name: str):
+    def __init__(self, lat: float, lon: float, tz: str, location_name: str, schedule: list[dict], return_trip_minutes: int):
         super().__init__()
         self._lat = lat
         self._lon = lon
         self._tz = tz
         self._location_name = location_name
+        self._schedule = schedule
+        self._return_trip_minutes = return_trip_minutes
 
     @pyqtSlot()
     def run(self):
         try:
             tw = fetch_today_weather(self._lat, self._lon, self._tz)
             tw.location_name = self._location_name
-            self.finished.emit(tw.to_dict())
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo(self._tz))
+            return_data = calculate_return_weather(
+                self._schedule, tw.hourly, now, self._return_trip_minutes
+            )
+            res = tw.to_dict()
+            res["return_weather"] = return_data
+            self.finished.emit(res)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -353,8 +363,17 @@ class WeatherView(QWidget):
         self._preview_label.setText("Consultando Open-Meteo...")
 
         self._test_thread = QThread()
+        cache = read_cache()
+        schedule = cache.weekly_schedule if cache else []
+        return_trip = self._return_spin.value()
+
         self._test_worker = _WeatherTestWorker(
-            float(lat_text), float(lon_text), tz_text, loc_text
+            float(lat_text),
+            float(lon_text),
+            tz_text,
+            loc_text,
+            schedule,
+            return_trip,
         )
         self._test_worker.moveToThread(self._test_thread)
         self._test_thread.started.connect(self._test_worker.run)
@@ -388,6 +407,24 @@ class WeatherView(QWidget):
             if precip is not None:
                 lines[-1] += f" · Lluvia {precip} %"
             lines.append("<br>")
+
+        return_weather = weather_dict.get("return_weather")
+        if return_weather:
+            status = return_weather.get("status")
+            if status == "upcoming":
+                ret_w = return_weather.get("weather_at_return") or return_weather.get("weather_at_end")
+                if ret_w:
+                    icon = get_weather_icon(ret_w.get("weather_code", 0), ret_w.get("is_day", True))
+                    temp = return_weather.get("return_temperature")
+                    if temp is not None:
+                        feels = ret_w.get("apparent_temperature", 0)
+                        lines.append(f"<b>Última actividad:</b> {return_weather['last_activity']['subject_name']} hasta las {return_weather['last_activity']['end_time']}")
+                        lines.append(f"<b>Regreso estimado:</b> {return_weather['estimated_return_at'][-5:]}")
+                        lines.append(f"<b>Vuelta a casa:</b> {icon} {temp:.0f} °C · Sensación {feels:.0f} °C<br>")
+            elif status == "no_activities":
+                lines.append("<b>Última actividad:</b> No hay clases registradas hoy.<br>")
+            elif status == "completed":
+                lines.append("<b>Última actividad:</b> Las actividades de hoy ya finalizaron.<br>")
 
         if hourly:
             lines.append("<b>Pronóstico horario:</b>")

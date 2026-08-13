@@ -142,14 +142,26 @@ Item {
                             Repeater {
                                 model: {
                                     if (!root.todayWeather || !root.todayWeather.hourly) return [];
-                                    var now = new Date();
-                                    var currentHour = now.getHours();
+                                    var currentHourStr = root.todayWeather.current && root.todayWeather.current.time ? root.todayWeather.current.time.substring(11, 13) : "00";
+                                    var currentHour = parseInt(currentHourStr);
+                                    var targetHour = 23;
+                                    
+                                    if (root.returnWeather && root.returnWeather.status === "upcoming" && root.returnWeather.estimated_return_at) {
+                                        var targetStr = root.returnWeather.estimated_return_at;
+                                        // Verificar si la fecha de estimación es la misma fecha del current_time
+                                        var currentDay = root.todayWeather.current && root.todayWeather.current.time ? root.todayWeather.current.time.substring(0, 10) : "";
+                                        if (currentDay && targetStr.substring(0, 10) === currentDay) {
+                                            targetHour = parseInt(targetStr.substring(11, 13)) + 1;
+                                            if (targetHour > 23) targetHour = 23;
+                                        }
+                                    }
+
                                     var filtered = [];
                                     for (var i = 0; i < root.todayWeather.hourly.length; i++) {
                                         var h = root.todayWeather.hourly[i];
                                         var hourStr = h.time ? h.time.substring(11, 13) : "";
                                         var hour = parseInt(hourStr);
-                                        if (hour >= currentHour && filtered.length < 8) {
+                                        if (hour >= currentHour && hour <= targetHour) {
                                             filtered.push(h);
                                         }
                                     }
@@ -237,8 +249,15 @@ Item {
 
                                 PlasmaComponents.Label {
                                     text: {
-                                        if (!root.returnWeather || !root.returnWeather.weather_at_end) return "";
-                                        var w = root.returnWeather.weather_at_end;
+                                        if (!root.returnWeather) return "";
+                                        var w = null;
+                                        if (root.returnWeather.return_temperature !== null && root.returnWeather.return_temperature !== undefined) {
+                                            w = root.returnWeather.weather_at_return || root.returnWeather.weather_at_end;
+                                        } else {
+                                            return "Pronóstico de regreso no disponible para hoy.";
+                                        }
+                                        if (!w) return "";
+                                        
                                         var line = Math.round(w.temperature) + " °C · Sensación " + Math.round(w.apparent_temperature) + " °C";
                                         if (w.precipitation_probability !== null && w.precipitation_probability !== undefined) {
                                             line += " · Lluvia " + w.precipitation_probability + " %";
@@ -256,11 +275,13 @@ Item {
                                     visible: root.returnWeather && root.returnWeather.temperature_diff !== null && root.returnWeather.temperature_diff !== undefined
                                     text: {
                                         if (!root.returnWeather || root.returnWeather.current_temperature === null || root.returnWeather.current_temperature === undefined) return "";
+                                        if (root.returnWeather.return_temperature === null || root.returnWeather.return_temperature === undefined) return "";
                                         var curr = Math.round(root.returnWeather.current_temperature);
-                                        var end = Math.round(root.returnWeather.end_temperature);
+                                        var end = Math.round(root.returnWeather.return_temperature);
                                         var diff = root.returnWeather.temperature_diff;
                                         var arrow = diff < 0 ? "↓" : (diff > 0 ? "↑" : "→");
-                                        return "Ahora " + curr + " °C → Vuelta " + end + " °C (" + arrow + Math.abs(Math.round(diff)) + " °C)";
+                                        var labelStr = (root.returnWeather.return_trip_minutes !== undefined && root.returnWeather.return_trip_minutes === 0) ? "Al terminar " : "Vuelta ";
+                                        return "Ahora " + curr + " °C → " + labelStr + end + " °C (" + arrow + Math.abs(Math.round(diff)) + " °C)";
                                     }
                                     font.pixelSize: Kirigami.Units.gridUnit * 0.55
                                     font.bold: true
