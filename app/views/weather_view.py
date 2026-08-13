@@ -363,9 +363,17 @@ class WeatherView(QWidget):
         self._preview_label.setText("Consultando Open-Meteo...")
 
         self._test_thread = QThread()
-        schedule = read_cache().weekly_schedule if read_cache() else []
+        cache = read_cache()
+        schedule = cache.weekly_schedule if cache else []
+        return_trip = self._return_spin.value()
+
         self._test_worker = _WeatherTestWorker(
-            float(lat_text), float(lon_text), tz_text, loc_text, schedule, return_trip
+            float(lat_text),
+            float(lon_text),
+            tz_text,
+            loc_text,
+            schedule,
+            return_trip,
         )
         self._test_worker.moveToThread(self._test_thread)
         self._test_thread.started.connect(self._test_worker.run)

@@ -340,6 +340,7 @@ class TestCalculateReturnWeather(unittest.TestCase):
         self.assertIsNotNone(result["weather_at_return"])
         # Temp a las 22:00 = 25 - 22 = 3
         self.assertEqual(result["return_temperature"], 3.0)
+        self.assertEqual(result["temperature_diff"], -8.0)
 
     def test_multiple_subjects_selects_latest(self):
         schedule = [

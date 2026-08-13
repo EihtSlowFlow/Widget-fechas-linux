@@ -63,6 +63,8 @@ Item {
         // ─── Global Weather ─────────────────────────────────
         PlasmaComponents.Label {
             Layout.fillWidth: true
+            Layout.preferredHeight: implicitHeight
+            wrapMode: Text.Wrap
             visible: root.todayWeather !== undefined && root.todayWeather !== null && root.todayWeather.current !== undefined && root.todayWeather.current !== null
             font.pixelSize: Kirigami.Units.gridUnit * 0.7
             opacity: 0.8
@@ -75,12 +77,12 @@ Item {
                     if (root.returnWeather.return_temperature !== null && root.returnWeather.return_temperature !== undefined) {
                         var w = root.returnWeather.weather_at_return || root.returnWeather.weather_at_end;
                         if (w) {
-                            baseText += "  →  🌙 Vuelta " + Math.round(root.returnWeather.return_temperature) + " °C · Sens. " + Math.round(w.apparent_temperature) + " °C";
+                            baseText += "\n🌙 Vuelta " + Math.round(root.returnWeather.return_temperature) + " °C · Sens. " + Math.round(w.apparent_temperature) + " °C";
                         }
                     } else {
                         var wEnd = root.returnWeather.weather_at_end;
                         if (wEnd) {
-                            baseText += "  →  🌙 Al terminar " + Math.round(wEnd.temperature) + " °C · Pronóstico de regreso no disponible para hoy";
+                            baseText += "\n🌙 Al terminar " + Math.round(wEnd.temperature) + " °C · Pronóstico de regreso no disponible para hoy";
                         }
                     }
                 }
