@@ -381,14 +381,15 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                     )
                     tw.location_name = weather_settings.location_name
                     today_weather_dict = tw.to_dict()
-                    write_weather_cache({
-                        "forecast_date": forecast_date,
-                        "latitude": weather_settings.latitude,
-                        "longitude": weather_settings.longitude,
-                        "timezone": weather_settings.timezone,
-                        "fetched_at": now_iso,
-                        "weather": today_weather_dict,
-                    })
+                    if not dry_run:
+                        write_weather_cache({
+                            "forecast_date": forecast_date,
+                            "latitude": weather_settings.latitude,
+                            "longitude": weather_settings.longitude,
+                            "timezone": weather_settings.timezone,
+                            "fetched_at": now_iso,
+                            "weather": today_weather_dict,
+                        })
                     logger.info("🌤️ Pronóstico meteorológico actualizado desde Open-Meteo")
                 except Exception as e:
                     logger.warning("Error consultando clima: %s", e)

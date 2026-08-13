@@ -169,21 +169,7 @@ class WeatherView(QWidget):
         trip_layout.addStretch()
         settings_layout.addWidget(trip_group)
 
-        # ── Actions row ──
-        actions_row = QHBoxLayout()
 
-        self._test_btn = QPushButton("🌡️ Probar configuración")
-        self._test_btn.setObjectName("secondaryButton")
-        self._test_btn.clicked.connect(self._test_config)
-        actions_row.addWidget(self._test_btn)
-
-        actions_row.addStretch()
-
-        self._save_btn = QPushButton("💾 Guardar configuración")
-        self._save_btn.clicked.connect(self._save_settings)
-        actions_row.addWidget(self._save_btn)
-
-        settings_layout.addLayout(actions_row)
 
         # ── Preview frame ──
         self._preview_frame = QFrame()
@@ -205,6 +191,22 @@ class WeatherView(QWidget):
         settings_layout.addStretch()
         layout.addWidget(self._settings_container)
         layout.addStretch()
+
+        # ── Actions row (siempre visible) ──
+        actions_row = QHBoxLayout()
+
+        self._test_btn = QPushButton("🌡️ Probar configuración")
+        self._test_btn.setObjectName("secondaryButton")
+        self._test_btn.clicked.connect(self._test_config)
+        actions_row.addWidget(self._test_btn)
+
+        actions_row.addStretch()
+
+        self._save_btn = QPushButton("💾 Guardar configuración")
+        self._save_btn.clicked.connect(self._save_settings)
+        actions_row.addWidget(self._save_btn)
+
+        layout.addLayout(actions_row)
 
     def _load_settings(self):
         """Carga la configuración meteorológica persistida."""

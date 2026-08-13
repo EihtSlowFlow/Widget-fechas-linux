@@ -55,7 +55,7 @@ Item {
         if (!isDay && nightIcons[code] !== undefined) return nightIcons[code];
         return dayIcons[code] !== undefined ? dayIcons[code] : "🌡️";
     }
-    
+
     Flickable {
         anchors.fill: parent
         clip: true
@@ -286,7 +286,7 @@ Item {
                             opacity: 0.6
                         }
                     }
-                    
+
                     PlasmaComponents.Label {
                         visible: modelData.items.length === 0
                         text: "Sin cursada"

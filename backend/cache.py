@@ -440,7 +440,7 @@ def is_weather_cache_valid(
 ) -> bool:
     """
     Verifica si el caché meteorológico es válido.
-    
+
     El caché es válido solo si coinciden:
     - forecast_date (fecha local actual)
     - latitude y longitude
@@ -473,7 +473,7 @@ def weather_cache_matches_context(
 ) -> bool:
     """
     Verifica si el caché corresponde a la misma fecha y ubicación.
-    
+
     Ignora la antigüedad (útil para fallback con dato desactualizado).
     """
     if not cache_data or "weather" not in cache_data:
