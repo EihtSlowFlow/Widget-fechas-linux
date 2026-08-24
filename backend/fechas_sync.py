@@ -172,7 +172,8 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
             week_end=week_end.isoformat(),
             topics=topics,
             units=unit_dicts,
-            virtual_class_url=getattr(subj, "virtual_class_url", "")
+            virtual_class_url=getattr(subj, "virtual_class_url", ""),
+            virtual_class_platform=getattr(subj, "virtual_class_platform", "")
         ))
 
     return current_subjects
@@ -197,12 +198,47 @@ def generate_weekly_schedule(subjects: list[SubjectSyllabus], today: date) -> li
                 "start_time": entry.start_time,
                 "end_time": entry.end_time,
                 "location": getattr(entry, 'location', ""),
-                "virtual_class_url": getattr(subj, "virtual_class_url", "")
+                "virtual_class_url": getattr(subj, "virtual_class_url", ""),
+                "virtual_class_platform": getattr(subj, "virtual_class_platform", "")
             })
 
     # Ordenar por día de la semana y hora de inicio
     schedule.sort(key=lambda x: (x["day_of_week"], x["start_time"]))
     return schedule
+
+
+def generate_virtual_classes(subjects: list[SubjectSyllabus], today: date) -> list[dict]:
+    """Genera una entrada única por materia activa con enlace, priorizando las de hoy."""
+    from backend.virtual_class import is_valid_virtual_class_url
+
+    today_day = today.isoweekday()
+    classes = []
+    seen_ids = set()
+    for subject in subjects:
+        if subject.id in seen_ids or not is_subject_active(subject, today):
+            continue
+        url = getattr(subject, "virtual_class_url", "")
+        if not is_valid_virtual_class_url(url):
+            continue
+        seen_ids.add(subject.id)
+        today_times = sorted(
+            f"{entry.start_time}–{entry.end_time}"
+            for entry in subject.class_schedule
+            if entry.day_of_week == today_day
+        )
+        classes.append({
+            "subject_id": subject.id,
+            "subject_name": subject.name,
+            "virtual_class_url": url,
+            "virtual_class_platform": getattr(subject, "virtual_class_platform", ""),
+            "has_class_today": bool(today_times),
+            "today_times": today_times,
+        })
+
+    classes.sort(key=lambda item: (
+        not item["has_class_today"], item["subject_name"].casefold(), item["subject_id"]
+    ))
+    return classes
 
 def find_schedule_overlaps(entries: list[dict]) -> list[tuple]:
     """
@@ -356,6 +392,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     subjects = read_subjects()
     current_subjects = process_subjects(subjects, today)
     weekly_schedule = generate_weekly_schedule(subjects, today)
+    virtual_classes = generate_virtual_classes(subjects, today)
 
     # 10. Pronóstico meteorológico
     today_weather_dict = None
@@ -440,6 +477,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                 events=event_dicts,
                 current_subjects=subject_dicts,
                 weekly_schedule=weekly_schedule,
+                virtual_classes=virtual_classes,
                 today_weather=today_weather_dict,
                 return_weather=return_weather_dict,
             )
@@ -458,6 +496,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
             events=event_dicts,
             current_subjects=subject_dicts,
             weekly_schedule=weekly_schedule,
+            virtual_classes=virtual_classes,
             today_weather=today_weather_dict,
             return_weather=return_weather_dict,
         )

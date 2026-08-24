@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import (
     QDateEdit, QMessageBox, QAbstractItemView, QComboBox, QTimeEdit,
     QCheckBox
 )
-from PyQt6.QtCore import Qt, QDate, QTime
+from PyQt6.QtCore import Qt, QDate, QTime, QUrl
+from PyQt6.QtGui import QDesktopServices
 from app.styles.theme import DARK_PALETTE
 
 class SubjectDialog(QDialog):
@@ -68,10 +69,22 @@ class SubjectDialog(QDialog):
         layout.addLayout(form_layout)
 
         virtual_layout = QVBoxLayout()
-        virtual_layout.addWidget(QLabel("Enlace de clase virtual (opcional):"))
+        virtual_layout.addWidget(QLabel("Clase virtual (opcional):"))
+        virtual_controls = QHBoxLayout()
+        self._virtual_class_platform_combo = QComboBox()
+        self._virtual_class_platform_combo.addItem("Seleccionar plataforma", "")
+        self._virtual_class_platform_combo.addItem("Google Meet", "google_meet")
+        self._virtual_class_platform_combo.addItem("Zoom", "zoom")
+        self._virtual_class_platform_combo.addItem("Microsoft Teams", "microsoft_teams")
+        self._virtual_class_platform_combo.addItem("Otra", "other")
+        virtual_controls.addWidget(self._virtual_class_platform_combo)
         self._virtual_class_url_edit = QLineEdit()
         self._virtual_class_url_edit.setPlaceholderText("https://meet.example.com/clase")
-        virtual_layout.addWidget(self._virtual_class_url_edit)
+        virtual_controls.addWidget(self._virtual_class_url_edit, stretch=1)
+        self._test_virtual_link_btn = QPushButton("Probar enlace")
+        self._test_virtual_link_btn.clicked.connect(self._test_virtual_link)
+        virtual_controls.addWidget(self._test_virtual_link_btn)
+        virtual_layout.addLayout(virtual_controls)
         layout.addLayout(virtual_layout)
 
         self._period_warning = QLabel("Las semanas del temario se calculan desde el inicio global del período académico.")
@@ -163,6 +176,9 @@ class SubjectDialog(QDialog):
     def _load_data(self):
         self._name_edit.setText(self._subject_data.get("name", ""))
         self._virtual_class_url_edit.setText(self._subject_data.get("virtual_class_url", ""))
+        platform = self._subject_data.get("virtual_class_platform", "")
+        platform_index = self._virtual_class_platform_combo.findData(platform)
+        self._virtual_class_platform_combo.setCurrentIndex(max(0, platform_index))
         start_date_str = self._subject_data.get("start_date", "")
         if start_date_str:
             self._start_date_edit.setDate(QDate.fromString(start_date_str, Qt.DateFormat.ISODate))
@@ -282,6 +298,12 @@ class SubjectDialog(QDialog):
                 )
                 self._virtual_class_url_edit.setFocus()
                 return
+            if not self._virtual_class_platform_combo.currentData():
+                QMessageBox.warning(
+                    self, "Error", "Seleccioná la plataforma de la clase virtual."
+                )
+                self._virtual_class_platform_combo.setFocus()
+                return
 
         if self._has_end_date.isChecked():
             if self._end_date_edit.date() < self._start_date_edit.date():
@@ -361,6 +383,21 @@ class SubjectDialog(QDialog):
 
         self.accept()
 
+    def _test_virtual_link(self):
+        url = self._virtual_class_url_edit.text().strip()
+        from backend.virtual_class import is_valid_virtual_class_url
+        if not is_valid_virtual_class_url(url):
+            QMessageBox.warning(
+                self, "Enlace inválido",
+                "Ingresá una URL HTTP o HTTPS válida antes de probarla."
+            )
+            return
+        if not QDesktopServices.openUrl(QUrl(url)):
+            QMessageBox.warning(
+                self, "No se pudo abrir",
+                "El sistema no pudo abrir el enlace con el navegador predeterminado."
+            )
+
     def get_subject_data(self) -> dict:
         schedules = []
         for row in range(self._schedule_table.rowCount()):
@@ -388,6 +425,7 @@ class SubjectDialog(QDialog):
             "start_date": self._start_date_edit.date().toString(Qt.DateFormat.ISODate),
             "end_date": self._end_date_edit.date().toString(Qt.DateFormat.ISODate) if self._has_end_date.isChecked() else "",
             "virtual_class_url": self._virtual_class_url_edit.text().strip(),
+            "virtual_class_platform": self._virtual_class_platform_combo.currentData(),
             "class_schedule": schedules,
             "units": units
         }

@@ -226,6 +226,7 @@ class SubjectSyllabus:
     class_schedule: list[ClassScheduleEntry] = field(default_factory=list)
     units: list[SyllabusUnit] = field(default_factory=list)
     virtual_class_url: str = ""          # URL HTTP(S) opcional
+    virtual_class_platform: str = ""     # google_meet, zoom, microsoft_teams u other
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -291,12 +292,21 @@ class SubjectSyllabus:
                 end_date = ""
 
         from backend.virtual_class import is_valid_virtual_class_url
-        virtual_class_url = data.get("virtual_class_url", "")
+        raw_url = data.get("virtual_class_url", "")
+        virtual_class_url = raw_url.strip() if isinstance(raw_url, str) else ""
         if not is_valid_virtual_class_url(virtual_class_url):
             virtual_class_url = ""
 
+        platform = data.get("virtual_class_platform", "")
+        platform = platform.strip() if isinstance(platform, str) else ""
+        if platform not in {"google_meet", "zoom", "microsoft_teams", "other"}:
+            platform = ""
+        if not virtual_class_url:
+            platform = ""
+
         return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date,
                    virtual_class_url=virtual_class_url,
+                   virtual_class_platform=platform,
                    class_schedule=class_schedule, units=units)
 
 
@@ -313,6 +323,7 @@ class CurrentSubjectWeek:
     topics: list[str]
     units: list[dict] = field(default_factory=list)
     virtual_class_url: str = ""
+    virtual_class_platform: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -452,6 +463,7 @@ class CacheData:
     events: list[dict] = field(default_factory=list)
     current_subjects: list[dict] = field(default_factory=list)
     weekly_schedule: list[dict] = field(default_factory=list)
+    virtual_classes: list[dict] = field(default_factory=list)
     today_weather: dict | None = None
     return_weather: dict | None = None
 
@@ -469,6 +481,7 @@ class CacheData:
             events=data.get("events", []),
             current_subjects=data.get("current_subjects", []),
             weekly_schedule=data.get("weekly_schedule", []),
+            virtual_classes=data.get("virtual_classes", []),
             today_weather=data.get("today_weather"),
             return_weather=data.get("return_weather"),
         )

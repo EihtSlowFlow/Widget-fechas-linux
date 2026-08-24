@@ -102,6 +102,9 @@ Item {
             PlasmaComponents.TabButton {
                 text: "Agenda semanal"
             }
+            PlasmaComponents.TabButton {
+                text: "Clases virtuales"
+            }
         }
 
         // ─── Separator ──────────────────────────────────────
@@ -304,6 +307,12 @@ Item {
                 subjectsModel: root.subjectsModel
                 todayWeather: root.todayWeather
                 returnWeather: root.returnWeather
+            }
+
+            VirtualClassesRepresentation {
+                anchors.fill: parent
+                visible: navTabBar.currentIndex === 2
+                classesModel: root.virtualClassesModel
                 copiedSubjectId: root.copiedSubjectId
                 copyLink: root.copyVirtualClassLink
             }

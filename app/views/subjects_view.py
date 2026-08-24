@@ -115,6 +115,11 @@ class SubjectsView(QWidget):
         self._copy_feedback.setStyleSheet("color: #4CAF50; background: transparent;")
         self._copy_feedback.hide()
         virtual_row.addWidget(self._copy_feedback)
+        self._virtual_platform = QLabel("")
+        self._virtual_platform.setStyleSheet(
+            f"color: {DARK_PALETTE['text_secondary']}; background: transparent;"
+        )
+        virtual_row.addWidget(self._virtual_platform)
         virtual_row.addStretch()
         detail_layout.addLayout(virtual_row)
         self._set_virtual_actions_visible(False)
@@ -181,6 +186,13 @@ class SubjectsView(QWidget):
         s = self._subjects[row]
         self._copy_feedback.hide()
         self._set_virtual_actions_visible(bool(getattr(s, "virtual_class_url", "")))
+        platform_labels = {
+            "google_meet": "Google Meet", "zoom": "Zoom",
+            "microsoft_teams": "Microsoft Teams", "other": "Otra plataforma",
+        }
+        self._virtual_platform.setText(
+            platform_labels.get(getattr(s, "virtual_class_platform", ""), "Clase virtual")
+        )
         self._detail_name.setText(s.name)
         if getattr(s, 'end_date', ""):
             self._detail_start.setText(f"Inicio: {s.start_date} | Fin: {s.end_date}")
@@ -217,6 +229,7 @@ class SubjectsView(QWidget):
     def _set_virtual_actions_visible(self, visible: bool):
         self._open_virtual_btn.setVisible(visible)
         self._copy_virtual_btn.setVisible(visible)
+        self._virtual_platform.setVisible(visible)
         if not visible:
             self._copy_feedback.hide()
 
@@ -231,7 +244,11 @@ class SubjectsView(QWidget):
     def _open_virtual_class(self):
         url = self._selected_virtual_class_url()
         if url:
-            QDesktopServices.openUrl(QUrl(url))
+            if not QDesktopServices.openUrl(QUrl(url)):
+                QMessageBox.warning(
+                    self, "No se pudo abrir",
+                    "El sistema no pudo abrir el enlace con el navegador predeterminado."
+                )
 
     def _copy_virtual_class(self):
         url = self._selected_virtual_class_url()

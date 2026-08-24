@@ -26,7 +26,7 @@ def virtual_class_url_for_subject(subject_id: str) -> str | None:
     return None
 
 
-def copy_virtual_class_link(subject_id: str) -> int:
+def copy_virtual_class_link(subject_id: str, *, linger_ms: int = 150) -> int:
     url = virtual_class_url_for_subject(subject_id)
     if url is None:
         return 2
@@ -34,11 +34,17 @@ def copy_virtual_class_link(subject_id: str) -> int:
     from PyQt6.QtCore import QTimer
     from PyQt6.QtGui import QGuiApplication
 
-    app = QGuiApplication.instance() or QGuiApplication(["fechas-copy-link"])
+    existing_app = QGuiApplication.instance()
+    app = existing_app or QGuiApplication(["fechas-copy-link"])
     app.clipboard().setText(url)
-    # Da tiempo a KDE/Klipper para adquirir el contenido antes de terminar.
-    QTimer.singleShot(150, app.quit)
-    app.exec()
+    if existing_app is None:
+        # En Plasma/Wayland, Klipper conserva el contenido cuando finaliza este
+        # proceso auxiliar. El tiempo permite que procese el cambio de selección.
+        QTimer.singleShot(max(0, linger_ms), app.quit)
+        app.exec()
+    else:
+        # Facilita integración y pruebas dentro de una aplicación Qt existente.
+        app.processEvents()
     return 0
 
 
