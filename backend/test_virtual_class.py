@@ -78,7 +78,17 @@ class TestVirtualClassUrl(unittest.TestCase):
             SubjectSyllabus(
                 id="later", name="Análisis", start_date="2026-08-01",
                 virtual_class_url=url,
+                class_schedule=[ClassScheduleEntry(5, "08:00", "10:00")],
+            ),
+            SubjectSyllabus(
+                id="sooner", name="Zzz del martes", start_date="2026-08-01",
+                virtual_class_url=url,
                 class_schedule=[ClassScheduleEntry(2, "08:00", "10:00")],
+            ),
+            SubjectSyllabus(
+                id="same-day-later", name="Aaa del martes", start_date="2026-08-01",
+                virtual_class_url=url,
+                class_schedule=[ClassScheduleEntry(2, "18:00", "20:00")],
             ),
             SubjectSyllabus(
                 id="today", name="Zoología", start_date="2026-08-01",
@@ -101,8 +111,15 @@ class TestVirtualClassUrl(unittest.TestCase):
         subjects.append(subjects[1])
 
         classes = generate_virtual_classes(subjects, today)
-        self.assertEqual([item["subject_id"] for item in classes], ["today", "later"])
+        self.assertEqual(
+            [item["subject_id"] for item in classes],
+            ["today", "sooner", "same-day-later", "later"]
+        )
         self.assertEqual(classes[0]["today_times"], ["09:00–10:00", "18:00–20:00"])
+        self.assertEqual(classes[1]["next_day_offset"], 1)
+        self.assertEqual(classes[1]["next_start_time"], "08:00")
+        self.assertEqual(classes[2]["next_start_time"], "18:00")
+        self.assertEqual(classes[3]["next_day_offset"], 4)
 
     @patch("backend.subject_actions.read_subjects")
     def test_copy_lookup_uses_subject_id_and_returns_exact_url(self, read_subjects):

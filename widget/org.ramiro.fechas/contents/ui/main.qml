@@ -103,16 +103,19 @@ PlasmoidItem {
         engine: "executable"
         connectedSources: []
         onNewData: (sourceName, data) => {
+            var subjectId = root.copyRequests[sourceName] || "";
             if (data["exit code"] === 0) {
-                root.copiedSubjectId = root.pendingCopySubjectId;
+                root.copiedSubjectId = subjectId;
                 copiedFeedbackTimer.restart();
             }
-            root.pendingCopySubjectId = "";
+            var remaining = Object.assign({}, root.copyRequests);
+            delete remaining[sourceName];
+            root.copyRequests = remaining;
             disconnectSource(sourceName);
         }
     }
 
-    property string pendingCopySubjectId: ""
+    property var copyRequests: ({})
 
     Timer {
         id: copiedFeedbackTimer
@@ -124,11 +127,13 @@ PlasmoidItem {
     function copyVirtualClassLink(subjectId) {
         if (!installDir || typeof subjectId !== "string"
                 || !subjectId.match(/^[a-zA-Z0-9_-]+$/)) return;
-        root.pendingCopySubjectId = subjectId;
-        copyLinkLauncher.connectSource(
-            "python3 " + shellQuote(installDir + "/backend/subject_actions.py")
-            + " copy-link " + subjectId
-        );
+        var command = "python3 " + shellQuote(installDir + "/backend/subject_actions.py")
+            + " copy-link " + subjectId;
+        if (root.copyRequests[command]) return;
+        var pending = Object.assign({}, root.copyRequests);
+        pending[command] = subjectId;
+        root.copyRequests = pending;
+        copyLinkLauncher.connectSource(command);
     }
 
     // ─── Mark event as seen ──────────────────────────────────

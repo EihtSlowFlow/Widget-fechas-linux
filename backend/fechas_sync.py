@@ -226,6 +226,11 @@ def generate_virtual_classes(subjects: list[SubjectSyllabus], today: date) -> li
             for entry in subject.class_schedule
             if entry.day_of_week == today_day
         )
+        upcoming = sorted(
+            ((entry.day_of_week - today_day) % 7, entry.start_time)
+            for entry in subject.class_schedule
+        )
+        next_day_offset, next_start_time = upcoming[0] if upcoming else (8, "")
         classes.append({
             "subject_id": subject.id,
             "subject_name": subject.name,
@@ -233,10 +238,16 @@ def generate_virtual_classes(subjects: list[SubjectSyllabus], today: date) -> li
             "virtual_class_platform": getattr(subject, "virtual_class_platform", ""),
             "has_class_today": bool(today_times),
             "today_times": today_times,
+            "next_day_offset": next_day_offset,
+            "next_start_time": next_start_time,
         })
 
     classes.sort(key=lambda item: (
-        not item["has_class_today"], item["subject_name"].casefold(), item["subject_id"]
+        not item["has_class_today"],
+        item["next_day_offset"],
+        item["next_start_time"],
+        item["subject_name"].casefold(),
+        item["subject_id"],
     ))
     return classes
 

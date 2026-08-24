@@ -81,11 +81,12 @@ Item {
                             if (root.copyLink) root.copyLink(modelData.subject_id);
                         }
                     }
-                    PlasmaComponents.Label {
-                        visible: root.copiedSubjectId === modelData.subject_id
-                        text: "✓ Enlace copiado"
-                        color: "#4CAF50"
-                    }
+                }
+                PlasmaComponents.Label {
+                    visible: root.copiedSubjectId === modelData.subject_id
+                    text: "✓ Enlace copiado"
+                    color: "#4CAF50"
+                    font.pixelSize: Kirigami.Units.gridUnit * 0.55
                 }
             }
         }
