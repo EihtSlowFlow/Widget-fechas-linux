@@ -15,6 +15,7 @@ PlasmoidItem {
     property var eventsModel: []
     property var subjectsModel: []
     property var weeklyScheduleModel: []
+    property var virtualClassesModel: []
     property var todayWeather: null
     property var returnWeather: null
     property string lastSync: ""
@@ -23,6 +24,7 @@ PlasmoidItem {
     property int eventCount: 0
     property bool isSyncing: false
     property bool pollingExistingSync: false
+    property string copiedSubjectId: ""
     property var dismissedBadges: ({}) // Collection to avoid executing mark-seen twice
 
     readonly property int maxVisibleEvents: Math.max(1, plasmoid.configuration.maxVisibleEvents || 20)
@@ -53,6 +55,7 @@ PlasmoidItem {
                     root.eventCount = root.eventsModel.length;
                     root.subjectsModel = json.current_subjects || [];
                     root.weeklyScheduleModel = json.weekly_schedule || [];
+                    root.virtualClassesModel = json.virtual_classes || [];
                     root.todayWeather = json.today_weather || null;
                     root.returnWeather = json.return_weather || null;
                     console.log("[FechasAcadémicas] Loaded " + root.eventCount + " events, " + root.subjectsModel.length + " subjects, " + root.weeklyScheduleModel.length + " schedule entries");
@@ -92,6 +95,45 @@ PlasmoidItem {
                 "nohup python3 " + shellQuote(appPath) + " >>" + shellQuote(logPath) + " 2>&1 &"
             );
         }
+    }
+
+    // ─── Copy virtual-class link by safe subject identifier ───
+    Plasma5Support.DataSource {
+        id: copyLinkLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            var subjectId = root.copyRequests[sourceName] || "";
+            if (data["exit code"] === 0) {
+                root.copiedSubjectId = subjectId;
+                copiedFeedbackTimer.restart();
+            }
+            var remaining = Object.assign({}, root.copyRequests);
+            delete remaining[sourceName];
+            root.copyRequests = remaining;
+            disconnectSource(sourceName);
+        }
+    }
+
+    property var copyRequests: ({})
+
+    Timer {
+        id: copiedFeedbackTimer
+        interval: 2000
+        repeat: false
+        onTriggered: root.copiedSubjectId = ""
+    }
+
+    function copyVirtualClassLink(subjectId) {
+        if (!installDir || typeof subjectId !== "string"
+                || !subjectId.match(/^[a-zA-Z0-9_-]+$/)) return;
+        var command = "python3 " + shellQuote(installDir + "/backend/subject_actions.py")
+            + " copy-link " + subjectId;
+        if (root.copyRequests[command]) return;
+        var pending = Object.assign({}, root.copyRequests);
+        pending[command] = subjectId;
+        root.copyRequests = pending;
+        copyLinkLauncher.connectSource(command);
     }
 
     // ─── Mark event as seen ──────────────────────────────────

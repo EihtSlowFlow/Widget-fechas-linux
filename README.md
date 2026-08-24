@@ -2,6 +2,11 @@
 
 Sistema integral de seguimiento temporal y cuenta regresiva para el escritorio KDE Plasma 6, diseñado para estudiantes universitarios. Compatible con Moodle y el calendario académico de la UNRN.
 
+> **Portapapeles en Plasma/Wayland:** el widget copia enlaces mediante un proceso
+> Qt breve y depende de Klipper (o de otro gestor de portapapeles compatible) para
+> conservar el contenido después de que ese proceso finaliza. Klipper viene activo
+> de forma predeterminada en Plasma; si se deshabilita, la copia puede no persistir.
+
 ## 🏗 Arquitectura
 
 ```

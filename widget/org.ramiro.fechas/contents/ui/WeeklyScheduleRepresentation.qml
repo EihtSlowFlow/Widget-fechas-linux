@@ -352,6 +352,7 @@ Item {
                                         opacity: 0.7
                                     }
                                 }
+
                             }
                         }
                     }
@@ -467,6 +468,7 @@ Item {
                                 wrapMode: Text.WordWrap
                                 opacity: 0.8
                             }
+
                         }
                     }
                 }
