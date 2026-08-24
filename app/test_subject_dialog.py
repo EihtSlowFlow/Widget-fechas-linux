@@ -23,5 +23,14 @@ class TestSubjectDialog(unittest.TestCase):
         self.assertNotIn("syllabus", output)
         self.assertEqual(len(output["units"]), 1)
 
+    def test_virtual_class_url_round_trip(self):
+        url = "https://meet.example.edu/join?token=a&room=b=c#start"
+        dialog = SubjectDialog(subject_data={
+            "name": "Test", "start_date": "2026-06-01",
+            "virtual_class_url": url,
+        })
+        self.assertEqual(dialog._virtual_class_url_edit.text(), url)
+        self.assertEqual(dialog.get_subject_data()["virtual_class_url"], url)
+
 if __name__ == "__main__":
     unittest.main()

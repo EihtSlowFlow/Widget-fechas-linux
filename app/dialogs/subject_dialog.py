@@ -67,6 +67,13 @@ class SubjectDialog(QDialog):
 
         layout.addLayout(form_layout)
 
+        virtual_layout = QVBoxLayout()
+        virtual_layout.addWidget(QLabel("Enlace de clase virtual (opcional):"))
+        self._virtual_class_url_edit = QLineEdit()
+        self._virtual_class_url_edit.setPlaceholderText("https://meet.example.com/clase")
+        virtual_layout.addWidget(self._virtual_class_url_edit)
+        layout.addLayout(virtual_layout)
+
         self._period_warning = QLabel("Las semanas del temario se calculan desde el inicio global del período académico.")
         self._period_warning.setStyleSheet("color: #FF9800; font-weight: bold; font-size: 12px;")
         self._period_warning.setWordWrap(True)
@@ -155,6 +162,7 @@ class SubjectDialog(QDialog):
 
     def _load_data(self):
         self._name_edit.setText(self._subject_data.get("name", ""))
+        self._virtual_class_url_edit.setText(self._subject_data.get("virtual_class_url", ""))
         start_date_str = self._subject_data.get("start_date", "")
         if start_date_str:
             self._start_date_edit.setDate(QDate.fromString(start_date_str, Qt.DateFormat.ISODate))
@@ -264,6 +272,17 @@ class SubjectDialog(QDialog):
             self._name_edit.setFocus()
             return
 
+        virtual_class_url = self._virtual_class_url_edit.text().strip()
+        if virtual_class_url:
+            from backend.virtual_class import is_valid_virtual_class_url
+            if not is_valid_virtual_class_url(virtual_class_url):
+                QMessageBox.warning(
+                    self, "Error",
+                    "El enlace de clase virtual debe ser una URL HTTP o HTTPS válida."
+                )
+                self._virtual_class_url_edit.setFocus()
+                return
+
         if self._has_end_date.isChecked():
             if self._end_date_edit.date() < self._start_date_edit.date():
                 QMessageBox.warning(self, "Error", "La fecha de fin no puede ser anterior a la de inicio.")
@@ -368,6 +387,7 @@ class SubjectDialog(QDialog):
             "name": self._name_edit.text().strip(),
             "start_date": self._start_date_edit.date().toString(Qt.DateFormat.ISODate),
             "end_date": self._end_date_edit.date().toString(Qt.DateFormat.ISODate) if self._has_end_date.isChecked() else "",
+            "virtual_class_url": self._virtual_class_url_edit.text().strip(),
             "class_schedule": schedules,
             "units": units
         }

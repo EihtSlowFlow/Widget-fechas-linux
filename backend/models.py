@@ -225,6 +225,7 @@ class SubjectSyllabus:
     end_date: str = ""                  # Opcional ISO 8601
     class_schedule: list[ClassScheduleEntry] = field(default_factory=list)
     units: list[SyllabusUnit] = field(default_factory=list)
+    virtual_class_url: str = ""          # URL HTTP(S) opcional
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -289,7 +290,14 @@ class SubjectSyllabus:
             except ValueError:
                 end_date = ""
 
-        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date, class_schedule=class_schedule, units=units)
+        from backend.virtual_class import is_valid_virtual_class_url
+        virtual_class_url = data.get("virtual_class_url", "")
+        if not is_valid_virtual_class_url(virtual_class_url):
+            virtual_class_url = ""
+
+        return cls(name=name, start_date=start_date, id=subj_id, end_date=end_date,
+                   virtual_class_url=virtual_class_url,
+                   class_schedule=class_schedule, units=units)
 
 
 
@@ -304,6 +312,7 @@ class CurrentSubjectWeek:
     week_end: str                       # ISO 8601 Date
     topics: list[str]
     units: list[dict] = field(default_factory=list)
+    virtual_class_url: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -502,4 +511,3 @@ class AcademicPeriod:
         if self.end_date:
             return date.fromisoformat(self.end_date)
         return date.fromisoformat(self.start_date) + timedelta(weeks=16) - timedelta(days=1)
-

@@ -171,7 +171,8 @@ def process_subjects(subjects: list[SubjectSyllabus], today: date) -> list[Curre
             week_start=week_start.isoformat(),
             week_end=week_end.isoformat(),
             topics=topics,
-            units=unit_dicts
+            units=unit_dicts,
+            virtual_class_url=getattr(subj, "virtual_class_url", "")
         ))
 
     return current_subjects
@@ -195,7 +196,8 @@ def generate_weekly_schedule(subjects: list[SubjectSyllabus], today: date) -> li
                 "day_of_week": entry.day_of_week,
                 "start_time": entry.start_time,
                 "end_time": entry.end_time,
-                "location": getattr(entry, 'location', "")
+                "location": getattr(entry, 'location', ""),
+                "virtual_class_url": getattr(subj, "virtual_class_url", "")
             })
 
     # Ordenar por día de la semana y hora de inicio

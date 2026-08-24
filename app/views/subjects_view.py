@@ -5,8 +5,10 @@ Vista de gestión de materias y temarios.
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
     QListWidgetItem, QPushButton, QFrame, QMessageBox,
+    QApplication,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices
 
 import sys
 from pathlib import Path
@@ -101,6 +103,22 @@ class SubjectsView(QWidget):
         self._detail_syllabus.setStyleSheet(f"color: {DARK_PALETTE['text_muted']}; font-size: 12px; background: transparent;")
         detail_layout.addWidget(self._detail_syllabus)
 
+        virtual_row = QHBoxLayout()
+        self._open_virtual_btn = QPushButton("🔗 Entrar a clase")
+        self._open_virtual_btn.clicked.connect(self._open_virtual_class)
+        virtual_row.addWidget(self._open_virtual_btn)
+        self._copy_virtual_btn = QPushButton("📋 Copiar enlace")
+        self._copy_virtual_btn.setObjectName("secondaryButton")
+        self._copy_virtual_btn.clicked.connect(self._copy_virtual_class)
+        virtual_row.addWidget(self._copy_virtual_btn)
+        self._copy_feedback = QLabel("✓ Enlace copiado")
+        self._copy_feedback.setStyleSheet("color: #4CAF50; background: transparent;")
+        self._copy_feedback.hide()
+        virtual_row.addWidget(self._copy_feedback)
+        virtual_row.addStretch()
+        detail_layout.addLayout(virtual_row)
+        self._set_virtual_actions_visible(False)
+
         # Action buttons
         btn_row = QHBoxLayout()
         self._edit_btn = QPushButton("Editar")
@@ -161,6 +179,8 @@ class SubjectsView(QWidget):
         if row < 0 or row >= len(self._subjects):
             return
         s = self._subjects[row]
+        self._copy_feedback.hide()
+        self._set_virtual_actions_visible(bool(getattr(s, "virtual_class_url", "")))
         self._detail_name.setText(s.name)
         if getattr(s, 'end_date', ""):
             self._detail_start.setText(f"Inicio: {s.start_date} | Fin: {s.end_date}")
@@ -193,6 +213,33 @@ class SubjectsView(QWidget):
             self._detail_syllabus.setText("\n".join(lines).rstrip())
         else:
             self._detail_syllabus.setText("Sin unidades configuradas.")
+
+    def _set_virtual_actions_visible(self, visible: bool):
+        self._open_virtual_btn.setVisible(visible)
+        self._copy_virtual_btn.setVisible(visible)
+        if not visible:
+            self._copy_feedback.hide()
+
+    def _selected_virtual_class_url(self) -> str | None:
+        row = self._list.currentRow()
+        if row < 0 or row >= len(self._subjects):
+            return None
+        url = getattr(self._subjects[row], "virtual_class_url", "")
+        from backend.virtual_class import is_valid_virtual_class_url
+        return url if is_valid_virtual_class_url(url) else None
+
+    def _open_virtual_class(self):
+        url = self._selected_virtual_class_url()
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
+
+    def _copy_virtual_class(self):
+        url = self._selected_virtual_class_url()
+        if not url:
+            return
+        QApplication.clipboard().setText(url)
+        self._copy_feedback.show()
+        QTimer.singleShot(2000, self._copy_feedback.hide)
 
     def _delete_subject(self):
         row = self._list.currentRow()

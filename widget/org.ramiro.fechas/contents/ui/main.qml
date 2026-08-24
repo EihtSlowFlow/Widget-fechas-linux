@@ -23,6 +23,7 @@ PlasmoidItem {
     property int eventCount: 0
     property bool isSyncing: false
     property bool pollingExistingSync: false
+    property string copiedSubjectId: ""
     property var dismissedBadges: ({}) // Collection to avoid executing mark-seen twice
 
     readonly property int maxVisibleEvents: Math.max(1, plasmoid.configuration.maxVisibleEvents || 20)
@@ -92,6 +93,40 @@ PlasmoidItem {
                 "nohup python3 " + shellQuote(appPath) + " >>" + shellQuote(logPath) + " 2>&1 &"
             );
         }
+    }
+
+    // ─── Copy virtual-class link by safe subject identifier ───
+    Plasma5Support.DataSource {
+        id: copyLinkLauncher
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            if (data["exit code"] === 0) {
+                root.copiedSubjectId = root.pendingCopySubjectId;
+                copiedFeedbackTimer.restart();
+            }
+            root.pendingCopySubjectId = "";
+            disconnectSource(sourceName);
+        }
+    }
+
+    property string pendingCopySubjectId: ""
+
+    Timer {
+        id: copiedFeedbackTimer
+        interval: 2000
+        repeat: false
+        onTriggered: root.copiedSubjectId = ""
+    }
+
+    function copyVirtualClassLink(subjectId) {
+        if (!installDir || typeof subjectId !== "string"
+                || !subjectId.match(/^[a-zA-Z0-9_-]+$/)) return;
+        root.pendingCopySubjectId = subjectId;
+        copyLinkLauncher.connectSource(
+            "python3 " + shellQuote(installDir + "/backend/subject_actions.py")
+            + " copy-link " + subjectId
+        );
     }
 
     // ─── Mark event as seen ──────────────────────────────────

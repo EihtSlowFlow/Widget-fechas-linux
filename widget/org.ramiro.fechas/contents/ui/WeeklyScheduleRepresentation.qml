@@ -10,6 +10,17 @@ Item {
     property var subjectsModel: []
     property var todayWeather: null
     property var returnWeather: null
+    property string copiedSubjectId: ""
+    property var copyLink: null
+
+    function validVirtualClassUrl(url) {
+        return typeof url === "string"
+            && /^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(url);
+    }
+
+    function openVirtualClass(url) {
+        if (validVirtualClassUrl(url)) Qt.openUrlExternally(url);
+    }
     
     // Group schedule by day
     property var groupedSchedule: {
@@ -352,6 +363,30 @@ Item {
                                         opacity: 0.7
                                     }
                                 }
+
+                                ColumnLayout {
+                                    visible: root.validVirtualClassUrl(modelData.virtual_class_url)
+                                    spacing: 2
+
+                                    PlasmaComponents.Button {
+                                        text: "🔗 Entrar a clase"
+                                        onClicked: root.openVirtualClass(modelData.virtual_class_url)
+                                    }
+
+                                    PlasmaComponents.Button {
+                                        text: "📋 Copiar enlace"
+                                        onClicked: {
+                                            if (root.copyLink) root.copyLink(modelData.subject_id);
+                                        }
+                                    }
+
+                                    PlasmaComponents.Label {
+                                        visible: root.copiedSubjectId === modelData.subject_id
+                                        text: "✓ Enlace copiado"
+                                        color: "#4CAF50"
+                                        font.pixelSize: Kirigami.Units.gridUnit * 0.55
+                                    }
+                                }
                             }
                         }
                     }
@@ -466,6 +501,30 @@ Item {
                                 font.pixelSize: Kirigami.Units.gridUnit * 0.65
                                 wrapMode: Text.WordWrap
                                 opacity: 0.8
+                            }
+
+                            RowLayout {
+                                visible: root.validVirtualClassUrl(modelData.virtual_class_url)
+                                spacing: Kirigami.Units.smallSpacing
+
+                                PlasmaComponents.Button {
+                                    text: "🔗 Entrar a clase"
+                                    onClicked: root.openVirtualClass(modelData.virtual_class_url)
+                                }
+
+                                PlasmaComponents.Button {
+                                    text: "📋 Copiar enlace"
+                                    onClicked: {
+                                        if (root.copyLink) root.copyLink(modelData.subject_id);
+                                    }
+                                }
+
+                                PlasmaComponents.Label {
+                                    visible: root.copiedSubjectId === modelData.subject_id
+                                    text: "✓ Enlace copiado"
+                                    color: "#4CAF50"
+                                    font.pixelSize: Kirigami.Units.gridUnit * 0.55
+                                }
                             }
                         }
                     }

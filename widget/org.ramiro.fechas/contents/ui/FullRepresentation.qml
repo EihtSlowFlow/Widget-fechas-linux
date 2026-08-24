@@ -304,6 +304,8 @@ Item {
                 subjectsModel: root.subjectsModel
                 todayWeather: root.todayWeather
                 returnWeather: root.returnWeather
+                copiedSubjectId: root.copiedSubjectId
+                copyLink: root.copyVirtualClassLink
             }
         }
 
