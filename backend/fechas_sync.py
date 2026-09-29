@@ -48,6 +48,7 @@ from backend.cache import (
     weather_cache_matches_context,
 )
 from backend.weather import fetch_today_weather, calculate_return_weather
+from backend.bike_weather import evaluate_bike_trip
 
 logger = logging.getLogger("fechas.sync")
 
@@ -408,6 +409,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
     # 10. Pronóstico meteorológico
     today_weather_dict = None
     return_weather_dict = None
+    bike_advice_dict = None
 
     try:
         weather_settings = read_weather_settings()
@@ -461,6 +463,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                     weekly_schedule, hourly, weather_now,
                     weather_settings.return_trip_minutes,
                 )
+                bike_advice_dict = evaluate_bike_trip(return_weather_dict)
     except Exception as e:
         logger.warning("Error meteorológico (no afecta sync académico): %s", e)
 
@@ -491,6 +494,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
                 virtual_classes=virtual_classes,
                 today_weather=today_weather_dict,
                 return_weather=return_weather_dict,
+                bike_advice=bike_advice_dict,
             )
             write_cache(cache)
         write_sources(sources)
@@ -510,6 +514,7 @@ def sync(dry_run: bool = False, source_id: str = None) -> CacheData:
             virtual_classes=virtual_classes,
             today_weather=today_weather_dict,
             return_weather=return_weather_dict,
+            bike_advice=bike_advice_dict,
         )
         logger.info(
             "═══ DRY RUN: %d eventos procesados (no se escribió al disco) ═══",
