@@ -344,6 +344,8 @@ class HourlyWeather:
     precipitation_probability: int | None = None
     weather_code: int = 0
     wind_speed: float | None = None
+    wind_direction: float | None = None
+    precipitation: float | None = None
     is_day: bool = True
 
     def to_dict(self) -> dict:
@@ -466,6 +468,7 @@ class CacheData:
     virtual_classes: list[dict] = field(default_factory=list)
     today_weather: dict | None = None
     return_weather: dict | None = None
+    bike_advice: dict | None = None
 
     def to_dict(self) -> dict:
         """Convierte a diccionario para serialización JSON."""
@@ -484,6 +487,7 @@ class CacheData:
             virtual_classes=data.get("virtual_classes", []),
             today_weather=data.get("today_weather"),
             return_weather=data.get("return_weather"),
+            bike_advice=data.get("bike_advice"),
         )
 
 @dataclass
