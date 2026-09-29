@@ -220,7 +220,48 @@ Item {
                             }
                         }
 
-                        // Bloque vuelta a casa
+                           // Indicador de bicicleta para la vuelta
+                        Rectangle {
+                            Layout.fillWidth: true
+                            visible: root.bikeAdvice !== null && root.bikeAdvice.status !== "unavailable"
+                            height: bikeAdviceCol.implicitHeight + Kirigami.Units.smallSpacing * 2
+                            radius: Kirigami.Units.cornerRadius
+                            color: {
+                                if (!root.bikeAdvice) return Qt.rgba(0, 0, 0, 0);
+                                if (root.bikeAdvice.status === "avoid") return Qt.rgba(0.85, 0.2, 0.2, 0.14);
+                                if (root.bikeAdvice.status === "caution") return Qt.rgba(0.9, 0.65, 0.1, 0.14);
+                                return Qt.rgba(0.2, 0.7, 0.3, 0.12);
+                            }
+                            border.width: 1
+                            border.color: {
+                                if (!root.bikeAdvice) return Kirigami.Theme.textColor;
+                                if (root.bikeAdvice.status === "avoid") return "#E57373";
+                                if (root.bikeAdvice.status === "caution") return "#FFCA58";
+                                return "#66BB6A";
+                            }
+                            ColumnLayout {
+                                id: bikeAdviceCol
+                                anchors.fill: parent
+                                anchors.margins: Kirigami.Units.smallSpacing
+                                spacing: 2
+                                PlasmaComponents.Label {
+                                    Layout.fillWidth: true
+                                    text: root.bikeAdvice.icon + " " + root.bikeAdvice.label
+                                    font.bold: true
+                                    font.pixelSize: Kirigami.Units.gridUnit * 0.7
+                                }
+                                PlasmaComponents.Label {
+                                    Layout.fillWidth: true
+                                    visible: root.bikeAdvice.reasons && root.bikeAdvice.reasons.length > 0
+                                    text: root.bikeAdvice.reasons ? root.bikeAdvice.reasons.join(" · ") : ""
+                                    font.pixelSize: Kirigami.Units.gridUnit * 0.55
+                                    opacity: 0.8
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+
+                     // Bloque vuelta a casa
                         Rectangle {
                             Layout.fillWidth: true
                             visible: root.returnWeather !== null && root.returnWeather.status === "upcoming"
