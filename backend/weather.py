@@ -81,6 +81,8 @@ def fetch_today_weather(
             "precipitation_probability",
             "weather_code",
             "wind_speed_10m",
+            "wind_direction_10m",
+            "precipitation",
             "is_day",
         ]),
         "current": ",".join([
@@ -110,6 +112,8 @@ def fetch_today_weather(
     precip = hourly_data.get("precipitation_probability", [])
     codes = hourly_data.get("weather_code", [])
     winds = hourly_data.get("wind_speed_10m", [])
+    wind_directions = hourly_data.get("wind_direction_10m", [])
+    precipitation = hourly_data.get("precipitation", [])
     is_days = hourly_data.get("is_day", [])
 
     # Validar que las listas principales tengan la misma longitud
@@ -129,6 +133,8 @@ def fetch_today_weather(
             precipitation_probability=precip[i] if i < len(precip) else None,
             weather_code=codes[i],
             wind_speed=winds[i] if i < len(winds) else None,
+            wind_direction=wind_directions[i] if i < len(wind_directions) else None,
+            precipitation=precipitation[i] if i < len(precipitation) else None,
             is_day=bool(is_days[i]) if i < len(is_days) else True,
         ))
 
@@ -158,6 +164,8 @@ def fetch_today_weather(
             precipitation_probability=current_precip,
             weather_code=current_data.get("weather_code", 0),
             wind_speed=current_data.get("wind_speed_10m"),
+            wind_direction=current_data.get("wind_direction_10m"),
+            precipitation=current_data.get("precipitation"),
             is_day=bool(current_data.get("is_day", 1)),
         )
 
