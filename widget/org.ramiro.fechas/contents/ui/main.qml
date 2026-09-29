@@ -18,6 +18,7 @@ PlasmoidItem {
     property var virtualClassesModel: []
     property var todayWeather: null
     property var returnWeather: null
+    property var bikeAdvice: null
     property string lastSync: ""
     property string syncStatus: "pending"
     property string syncError: ""
@@ -58,6 +59,7 @@ PlasmoidItem {
                     root.virtualClassesModel = json.virtual_classes || [];
                     root.todayWeather = json.today_weather || null;
                     root.returnWeather = json.return_weather || null;
+                    root.bikeAdvice = json.bike_advice || null;
                     console.log("[FechasAcadémicas] Loaded " + root.eventCount + " events, " + root.subjectsModel.length + " subjects, " + root.weeklyScheduleModel.length + " schedule entries");
                 } catch (e) {
                     console.log("[FechasAcadémicas] Error parsing cache: " + e);
