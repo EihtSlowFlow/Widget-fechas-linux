@@ -220,7 +220,7 @@ Item {
                             }
                         }
 
-                           // Indicador de bicicleta para la vuelta
+                        // Indicador de bicicleta para la vuelta
                         Rectangle {
                             Layout.fillWidth: true
                             visible: root.bikeAdvice !== null && root.bikeAdvice.status !== "unavailable"
@@ -261,7 +261,7 @@ Item {
                             }
                         }
 
-                     // Bloque vuelta a casa
+                        // Bloque vuelta a casa
                         Rectangle {
                             Layout.fillWidth: true
                             visible: root.returnWeather !== null && root.returnWeather.status === "upcoming"
