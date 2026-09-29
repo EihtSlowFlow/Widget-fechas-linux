@@ -1,6 +1,20 @@
 """
 Indicador meteorológico para decidir si las condiciones de la vuelta favorecen
 el uso de bicicleta en la ruta habitual.
+
+La lógica de lluvia NO evalúa simplemente "¿va a llover?", sino si la lluvia
+durante la vuelta puede venir de frente y comprometer la visibilidad.
+La precipitación cae aproximadamente con el viento, por lo que la componente
+frontal del viento determina si la lluvia golpea de frente al ciclista.
+
+Reglas de lluvia con dirección:
+  • Lluvia significativa + noche + componente frontal → "No conviene"
+    (pérdida de visibilidad crítica).
+  • Lluvia fuerte con viento lateral o de cola → "Precaución"
+    (te mojás, pero no perdés visibilidad de frente).
+  • Lluvia débil/moderada sin componente frontal importante → no impide ir.
+
+El viento extremo sigue siendo motivo independiente de "No conviene".
 """
 
 from __future__ import annotations
@@ -19,6 +33,11 @@ EXTREME_HEADWIND_KMH = 40.0
 EXTREME_CROSSWIND_KMH = 45.0
 STRONG_WIND_KMH = 30.0
 HEAVY_RAIN_CODES = frozenset({65, 67, 82, 95, 96, 97, 99})
+
+# Umbral mínimo de componente frontal del viento (km/h) para que la lluvia
+# se considere "de frente" y comprometa la visibilidad del ciclista.
+# Un viento frontal de ≥10 km/h con lluvia ya arrastra gotas hacia la cara.
+FRONTAL_RAIN_THRESHOLD_KMH = 10.0
 
 
 def _angular_difference(a: float, b: float) -> float:
@@ -73,13 +92,27 @@ def _is_heavy_rain(weather: HourlyWeather) -> bool:
         return False
 
 
+def _has_frontal_rain_component(
+    max_headwind: float | None,
+    threshold: float = FRONTAL_RAIN_THRESHOLD_KMH,
+) -> bool:
+    """Determina si el viento tiene suficiente componente frontal como para
+    arrastrar la lluvia hacia la cara del ciclista, comprometiendo visibilidad.
+
+    La lluvia cae aproximadamente con el viento, así que si la componente de
+    frente supera el umbral, las gotas golpean de frente."""
+    if max_headwind is None:
+        return False
+    return max_headwind >= threshold
+
+
 def evaluate_bike_trip(return_weather: dict | None) -> dict:
     """
     Resume las condiciones de la vuelta.
 
     go       = no se detecta condición relevante.
     caution  = lluvia probable o viento fuerte, sin umbral extremo.
-    avoid    = lluvia fuerte nocturna o viento extremo para la ruta.
+    avoid    = lluvia de frente nocturna (visibilidad) o viento extremo.
     """
     unavailable = {
         "status": "unavailable",
@@ -100,9 +133,18 @@ def evaluate_bike_trip(return_weather: dict | None) -> dict:
     max_crosswind = components["max_crosswind_kmh"]
 
     heavy_rain = _is_heavy_rain(hourly)
-    reasons = []
+    frontal_rain = heavy_rain and _has_frontal_rain_component(max_headwind)
+    is_night = not hourly.is_day
+
+    # --- Construir motivos ---
+    reasons: list[str] = []
+
     if heavy_rain:
-        reasons.append("lluvia fuerte")
+        if frontal_rain:
+            reasons.append("lluvia fuerte de frente (visibilidad reducida)")
+        else:
+            # Lluvia fuerte pero lateral/cola: te mojás pero ves.
+            reasons.append("lluvia fuerte (lateral/cola)")
     elif hourly.precipitation_probability is not None and hourly.precipitation_probability >= 70:
         reasons.append("alta probabilidad de lluvia")
 
@@ -115,14 +157,15 @@ def evaluate_bike_trip(return_weather: dict | None) -> dict:
     if max_crosswind is not None and max_crosswind >= EXTREME_CROSSWIND_KMH:
         reasons.append(f"viento lateral de hasta {max_crosswind:.0f} km/h")
 
-    is_night = not hourly.is_day
-    heavy_rain_at_night = is_night and heavy_rain
+    # --- Decidir nivel ---
+    # Lluvia frontal de noche: pérdida de visibilidad crítica.
+    frontal_rain_at_night = is_night and frontal_rain
     extreme_wind = (
         (max_headwind is not None and max_headwind >= EXTREME_HEADWIND_KMH)
         or (max_crosswind is not None and max_crosswind >= EXTREME_CROSSWIND_KMH)
     )
 
-    if heavy_rain_at_night or extreme_wind:
+    if frontal_rain_at_night or extreme_wind:
         status, label, icon = "avoid", "No conviene", "🚲⚠️"
     elif reasons:
         status, label, icon = "caution", "Precaución", "🚲🟡"
@@ -135,7 +178,8 @@ def evaluate_bike_trip(return_weather: dict | None) -> dict:
         "icon": icon,
         "is_night": is_night,
         "heavy_rain": heavy_rain,
-        "heavy_rain_at_night": heavy_rain_at_night,
+        "frontal_rain": frontal_rain,
+        "frontal_rain_at_night": frontal_rain_at_night,
         "wind_speed_kmh": hourly.wind_speed,
         "wind_direction_deg": hourly.wind_direction,
         "max_headwind_kmh": max_headwind,
